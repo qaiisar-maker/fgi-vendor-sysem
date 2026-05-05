@@ -109,7 +109,7 @@ function navigate(page) {
   if (page === 'dashboard')  loadDashboard();
   if (page === 'report')     loadReport();
   if (page === 'ledger')     initLedgerPage();
-  if (page === 'add-vendor') { resetAddPage(); populateVendorDropdowns(); }
+  if (page === 'add-vendor') { resetAddPage(); populateVendorDropdowns(); setTimeout(setTodayDates, 30); }
 }
 
 function resetAddPage() {
@@ -138,26 +138,59 @@ function switchTab(tab) {
   document.getElementById('tabPay').style.display     = tab === 'pay'  ? '' : 'none';
   document.getElementById('tabBillBtn').classList.toggle('active', tab === 'bill');
   document.getElementById('tabPayBtn').classList.toggle('active',  tab === 'pay');
-  if (tab === 'pay') populatePayVendor();
+  if (tab === 'pay') { populatePayVendor(); setTimeout(setTodayDates, 30); }
 }
 
 // ===========================
-// DATE FORMAT dd/mm/yy
+// DATE FUNCTIONS
 // ===========================
-function formatDate(input) {
+
+// Native picker (yyyy-mm-dd) → text field (dd/mm/yy)
+function syncDate(nativeId, textId) {
+  const val = document.getElementById(nativeId)?.value;
+  if (!val) return;
+  const [yy4, mm, dd] = val.split('-');
+  document.getElementById(textId).value = `${dd}/${mm}/${yy4.slice(-2)}`;
+}
+
+// Manual text input → sync native (readonly now, kept for edit mode)
+function formatDate(input, nativeId) {
   let v = input.value.replace(/\D/g,'');
   if (v.length > 6) v = v.slice(0,6);
   let out = v.slice(0,2);
   if (v.length >= 3) out += '/' + v.slice(2,4);
   if (v.length >= 5) out += '/' + v.slice(4,6);
   input.value = out;
+  if (nativeId && /^\d{2}\/\d{2}\/\d{2}$/.test(out)) {
+    const [dd,mm,yy] = out.split('/');
+    const nEl = document.getElementById(nativeId);
+    if (nEl) nEl.value = `20${yy}-${mm}-${dd}`;
+  }
 }
+
 function validateDate(d) { return /^\d{2}\/\d{2}\/\d{2}$/.test(d); }
+
 function getTodayDDMMYY() {
   const n = new Date();
   return `${pad(n.getDate())}/${pad(n.getMonth()+1)}/${String(n.getFullYear()).slice(-2)}`;
 }
+function getTodayNative() {
+  const n = new Date();
+  return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
+}
 function pad(n) { return String(n).padStart(2,'0'); }
+
+// Auto-set today on all date pickers (only if empty)
+function setTodayDates() {
+  const tn = getTodayNative();
+  const td = getTodayDDMMYY();
+  [['fDateNative','fDate'],['pDateNative','pDate']].forEach(([nId,tId]) => {
+    const nEl = document.getElementById(nId);
+    const tEl = document.getElementById(tId);
+    if (nEl && !nEl.value) nEl.value = tn;
+    if (tEl && !tEl.value) tEl.value = td;
+  });
+}
 
 // ===========================
 // VENDOR AUTOCOMPLETE (bill form)
@@ -708,6 +741,11 @@ async function editBill(id) {
     document.getElementById('fMobile').value = b.mobile||'';
     document.getElementById('fCity').value = b.city||'';
     document.getElementById('fDate').value = b.date;
+    // Sync native picker
+    if (b.date && validateDate(b.date)) {
+      const [dd,mm,yy] = b.date.split('/');
+      document.getElementById('fDateNative').value = `20${yy}-${mm}-${dd}`;
+    }
     document.getElementById('fBillNo').value = b.billNo;
     document.getElementById('fAmount').value = b.amount;
     document.getElementById('fDescription').value = b.description||'';
@@ -747,6 +785,11 @@ async function editPayment(id) {
     await loadVendorBillsForPay();
     if (p.billId) document.getElementById('pBillRef').value = p.billId;
     document.getElementById('pDate').value = p.date;
+    // Sync native picker
+    if (p.date && validateDate(p.date)) {
+      const [dd,mm,yy] = p.date.split('/');
+      document.getElementById('pDateNative').value = `20${yy}-${mm}-${dd}`;
+    }
     document.getElementById('pAmount').value = p.amount;
     document.getElementById('pPayment').value = p.payment;
     document.getElementById('pRef').value = p.refNo||'';

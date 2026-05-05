@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#6B7BF7">
 <meta name="description" content="Professional Vendor Management System">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -106,7 +106,14 @@
           </div>
           <div class="form-group"><label>Mobile <span class="opt">(optional)</span></label><input type="tel" id="fMobile" placeholder="03XX-XXXXXXX" class="form-input"></div>
           <div class="form-group"><label>City <span class="opt">(optional)</span></label><input type="text" id="fCity" placeholder="Lahore, Karachi..." class="form-input"></div>
-          <div class="form-group"><label>Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label><input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input" oninput="formatDate(this)"></div>
+          <div class="form-group">
+            <label>Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
+            <div class="date-picker-wrap">
+              <input type="date" id="fDateNative" class="form-input date-native" onchange="syncDate('fDateNative','fDate')">
+              <input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" oninput="formatDate(this,'fDateNative')" readonly>
+              <span class="date-cal-icon">📅</span>
+            </div>
+          </div>
           <div class="form-group"><label>Bill No <span class="req">*</span></label><input type="text" id="fBillNo" placeholder="INV-001" class="form-input"></div>
           <div class="form-group"><label>Bill Amount (PKR) <span class="req">*</span></label><input type="number" id="fAmount" placeholder="0.00" class="form-input" min="0"></div>
           <div class="form-group full-width"><label>Description <span class="opt">(optional)</span></label><textarea id="fDescription" placeholder="Goods received, services rendered..." class="form-input form-textarea" rows="3"></textarea></div>
@@ -149,7 +156,14 @@
             <div class="bill-preview" id="billPreview"></div>
           </div>
 
-          <div class="form-group"><label>Payment Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label><input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input" oninput="formatDate(this)"></div>
+          <div class="form-group">
+            <label>Payment Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
+            <div class="date-picker-wrap">
+              <input type="date" id="pDateNative" class="form-input date-native" onchange="syncDate('pDateNative','pDate')">
+              <input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" oninput="formatDate(this,'pDateNative')" readonly>
+              <span class="date-cal-icon">📅</span>
+            </div>
+          </div>
           <div class="form-group"><label>Amount Paid (PKR) <span class="req">*</span></label><input type="number" id="pAmount" placeholder="0.00" class="form-input" min="0" oninput="checkPayAmount()"></div>
           <div class="form-group"><label>Payment Method <span class="req">*</span></label>
             <select id="pPayment" class="form-input">

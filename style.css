@@ -813,3 +813,176 @@ tbody td {
   .tab-btn { white-space: nowrap; }
   .bill-preview { flex-direction: column; }
 }
+
+/* ===== DATE PICKER ===== */
+.date-picker-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.date-native {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+}
+.date-text {
+  flex: 1;
+  padding-right: 42px !important;
+  cursor: pointer;
+  background: #FAFBFF;
+  pointer-events: none;
+}
+.date-cal-icon {
+  position: absolute;
+  right: 14px;
+  font-size: 18px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ===== RESPONSIVE — ANDROID / MOBILE FIRST ===== */
+
+/* Base mobile styles — phones up to 480px */
+@media (max-width: 480px) {
+  :root { --radius: 12px; --radius-sm: 8px; }
+
+  body { font-size: 15px; }
+
+  /* Sidebar full width on mobile */
+  .sidebar { width: 100vw; max-width: 300px; }
+
+  /* Main padding safe area */
+  .main-content {
+    margin-left: 0;
+    padding: 68px 12px 24px;
+  }
+
+  /* Page header stack */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .page-title { font-size: 22px; }
+
+  /* Stats — 2 columns on mobile */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-card { padding: 14px 12px; gap: 10px; }
+  .stat-icon { font-size: 22px; }
+  .stat-num { font-size: 20px; }
+  .stat-label { font-size: 11px; }
+
+  /* Dashboard bottom stack */
+  .dashboard-bottom { grid-template-columns: 1fr; gap: 12px; }
+  .recent-card, .payment-card { padding: 16px; }
+  .payment-chart { flex-direction: column; align-items: center; }
+
+  /* Form — single column */
+  .form-container { padding: 16px; }
+  .form-grid { grid-template-columns: 1fr; gap: 14px; }
+  .form-group.full-width { grid-column: auto; }
+
+  /* Form inputs bigger for touch */
+  .form-input {
+    padding: 13px 14px;
+    font-size: 15px;
+    min-height: 48px;
+  }
+  .form-textarea { min-height: 80px; }
+
+  /* Buttons bigger for touch */
+  .btn-primary, .btn-secondary, .btn-outline {
+    padding: 13px 18px;
+    font-size: 15px;
+    min-height: 48px;
+  }
+  .form-actions { gap: 10px; }
+  .form-actions .btn-primary { flex: 1; }
+  .form-actions .btn-secondary { min-width: 80px; }
+
+  /* Tabs */
+  .tab-btn { padding: 12px 16px; font-size: 13.5px; }
+
+  /* Outstanding box */
+  .outstanding-box { flex-direction: column; gap: 0; }
+  .out-item { flex-direction: row; justify-content: space-between; padding: 10px 14px; border-right: none; border-bottom: 1px solid var(--border); }
+  .out-item:last-child { border-bottom: none; }
+  .out-label { font-size: 13px; margin-bottom: 0; }
+  .out-num { font-size: 15px; }
+
+  /* Ledger vendor select */
+  .ledger-vendor-select { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; }
+  .ledger-vendor-select .form-input { max-width: 100%; }
+  .ledger-vendor-select .btn-primary { width: 100%; text-align: center; }
+
+  /* Ledger summary */
+  .ledger-summary { grid-template-columns: 1fr; gap: 10px; }
+
+  /* Filter bar */
+  .filter-bar { flex-direction: column; gap: 10px; }
+  .search-input, .filter-select { width: 100%; min-width: unset; }
+
+  /* Table scroll */
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 600px; font-size: 12px; }
+  thead th { padding: 10px 10px; font-size: 11px; }
+  tbody td { padding: 10px 10px; }
+
+  /* Action buttons smaller */
+  .btn-edit, .btn-delete { padding: 4px 8px; font-size: 11px; }
+
+  /* Header actions */
+  .header-actions { gap: 8px; }
+  .header-actions .btn-outline, .header-actions .btn-primary { padding: 9px 14px; font-size: 13px; }
+
+  /* Mobile header */
+  .mobile-header { height: 56px; }
+  .mobile-title { font-size: 15px; }
+
+  /* Toast bottom safe area */
+  .toast { bottom: 20px; font-size: 13px; padding: 10px 20px; }
+}
+
+/* Tablet — 481px to 768px */
+@media (min-width: 481px) and (max-width: 768px) {
+  .main-content { margin-left: 0; padding: 72px 18px 24px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-bottom { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .ledger-summary { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Desktop — 769px+ */
+@media (min-width: 769px) {
+  .mobile-header { display: none !important; }
+  .main-content { margin-left: var(--sidebar-w); padding: 32px; }
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  .dashboard-bottom { grid-template-columns: 1.6fr 1fr; }
+}
+
+/* Large desktop — 1200px+ */
+@media (min-width: 1200px) {
+  .form-container { max-width: 820px; }
+  .stats-grid { gap: 20px; }
+}
+
+/* Safe area for notch phones */
+@supports (padding: max(0px)) {
+  .main-content {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .mobile-header {
+    padding-top: env(safe-area-inset-top);
+    height: calc(56px + env(safe-area-inset-top));
+  }
+}
