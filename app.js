@@ -448,91 +448,169 @@ async function loadLedger(){
 
   const [bills,allPay]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
   const vb=bills.filter(b=>b.vendorName===vendor).sort((a,b)=>dsk(a.date).localeCompare(dsk(b.date)));
-  const vp=allPay.filter(p=>p.vendorName===vendor).sort((a,b)=>dsk(a.date).localeCompare(dsk(b.date)));
+  const vp=allPay.filter(p=>p.vendorName===vendor);
 
   const tb=vb.reduce((s,b)=>s+b.amount,0);
   const tp=vp.reduce((s,p)=>s+p.amount,0);
   const bal=tb-tp;
-  const city=vb[0]?.city||''; const mobile=vb[0]?.mobile||'';
 
-  // Merge & sort
-  const rows=[...vb.map(b=>({...b,_type:'bill',_sk:dsk(b.date)+String(b.createdAt||0).padStart(15,'0')})),
-              ...vp.map(p=>({...p,_type:'payment',_sk:dsk(p.date)+String(p.createdAt||0).padStart(15,'0')}))];
+  // Get vendor info from latest bill
+  const lastBill=[...vb].reverse()[0];
+  const city=lastBill?.city||'';
+  const mobile=lastBill?.mobile||'';
+
+  // Merge & sort all rows
+  const rows=[
+    ...vb.map(b=>({...b,_type:'bill',_sk:dsk(b.date)+String(b.createdAt||0).padStart(15,'0')})),
+    ...vp.map(p=>({...p,_type:'payment',_sk:dsk(p.date)+String(p.createdAt||0).padStart(15,'0')}))
+  ];
   rows.sort((a,b)=>a._sk.localeCompare(b._sk));
 
+  // Build table rows (FGI style)
   let runBal=0; let num=0;
-  const rowsHTML=rows.map(r=>{
+  const tableRows=rows.map(r=>{
     num++;
-    if(r._type==='bill'){
-      runBal-=r.amount;
+    const isPay=r._type==='payment';
+    if(isPay) runBal+=r.amount; else runBal-=r.amount;
+
+    const particulars=isPay
+      ? `<span class="part-pay-icon">${payIcon(r.payment)}</span>
+         <span class="part-method">${r.payment}</span>
+         <span class="part-tag pay-tag">PAY</span>
+         ${r.billId?(()=>{const b=vb.find(b=>b.id===r.billId);return b?`<span class="part-ref">vs ${b.billNo}</span>`:''})():''}
+         ${r.refNo?`<small style="color:#888;display:block;margin-top:2px">${r.refNo}</small>`:''}
+         ${r.note?`<small style="color:#888;display:block">${r.note}</small>`:''}`
+      : `<span class="part-billno">${r.billNo}</span>
+         <span class="part-tag inv-tag">INV</span>
+         ${r.description?`<small style="color:#888;display:block;margin-top:2px">${r.description}</small>`:''}`;
+
+    const paidCell=isPay?`<span class="cell-paid">Rs. ${r.amount.toLocaleString('en-PK')}</span>`:`<span class="cell-dash">—</span>`;
+    const billedCell=!isPay?`<span class="cell-billed">Rs. ${r.amount.toLocaleString('en-PK')}</span>`:`<span class="cell-dash">—</span>`;
+
+    // Bill status for bill rows
+    let balCell='';
+    if(!isPay){
       const paidForBill=allPay.filter(p=>p.billId===r.id).reduce((s,p)=>s+p.amount,0);
       const rem=r.amount-paidForBill;
-      const statusBadge=rem<=0?'<span class="pay-status-sm pss-paid">✅ Paid</span>':rem<r.amount?'<span class="pay-status-sm pss-partial">⚡ Partial</span>':'<span class="pay-status-sm pss-unpaid">🔴 Unpaid</span>';
-      return `<div class="ledger-row row-bill">
-        <div class="lr-num">${num}</div>
-        <div class="lr-body">
-          <div class="lr-top"><span class="lr-date">${r.date}</span><span class="lr-bill">${r.billNo}</span></div>
-          ${r.description?`<div class="lr-desc">${r.description}</div>`:''}
-          <div class="lr-bottom">
-            <span class="lr-debit">-PKR ${r.amount.toLocaleString('en-PK')}</span>
-            <span class="lr-balance">Bal: PKR ${Math.abs(runBal).toLocaleString('en-PK')} ${runBal<0?'Dr':'Cr'}</span>
-          </div>
-        </div>
-        <div class="lr-actions">
-          ${statusBadge}
-          <button class="btn-edit-sm" onclick="editBill(${r.id})">✎</button>
-          <button class="btn-del-sm" onclick="deleteBill(${r.id},true)">✕</button>
-        </div>
-      </div>`;
+      balCell=rem<=0
+        ? `<span class="cell-bal-clear">✅ Clear</span>`
+        : `<span class="cell-bal-due">Rs. ${Math.abs(runBal).toLocaleString('en-PK')}</span>`;
     }else{
-      runBal+=r.amount;
-      const billLabel=r.billId?(()=>{const b=vb.find(b=>b.id===r.billId);return b?`Against: ${b.billNo}`:''})():'General';
-      return `<div class="ledger-row row-pay">
-        <div class="lr-num">${num}</div>
-        <div class="lr-body">
-          <div class="lr-top"><span class="lr-date">${r.date}</span><span class="lr-bill" style="color:#059669">${r.refNo||billLabel||'Payment'}</span></div>
-          <div class="lr-desc"><span class="pay-badge ${payClass(r.payment)}">${payIcon(r.payment)} ${r.payment}</span>${r.note?' — '+r.note:''}</div>
-          <div class="lr-bottom">
-            <span class="lr-credit">+PKR ${r.amount.toLocaleString('en-PK')}</span>
-            <span class="lr-balance" style="color:${runBal<0?'#EF4444':'#059669'}">Bal: PKR ${Math.abs(runBal).toLocaleString('en-PK')} ${runBal<0?'Dr':'Cr'}</span>
-          </div>
-        </div>
-        <div class="lr-actions">
-          <span class="pay-status-sm pss-paid">✅ Paid</span>
-          <button class="btn-edit-sm" onclick="editPayment(${r.id})">✎</button>
-          <button class="btn-del-sm" onclick="deletePayment(${r.id},true)">✕</button>
-        </div>
-      </div>`;
+      balCell=runBal<=0
+        ? `<span class="cell-bal-clear">✅ Clear</span>`
+        : `<span class="cell-bal-due">Rs. ${Math.abs(runBal).toLocaleString('en-PK')}</span>`;
     }
+
+    return `<tr class="${isPay?'tr-pay':'tr-bill'}">
+      <td class="td-num">${num}</td>
+      <td class="td-date">${r.date}</td>
+      <td class="td-part">${particulars}</td>
+      <td class="td-paid">${paidCell}</td>
+      <td class="td-billed">${billedCell}</td>
+      <td class="td-bal">${balCell}</td>
+      <td class="td-act">
+        <button class="btn-edit-sm" onclick="${isPay?'editPayment':'editBill'}(${r.id})">✎</button>
+        <button class="btn-del-sm" onclick="${isPay?'deletePayment':'deleteBill'}(${r.id},true)">✕</button>
+      </td>
+    </tr>`;
   }).join('');
 
+  // Payment methods breakdown
+  const methodTotals={};
+  vp.forEach(p=>{ methodTotals[p.payment]=(methodTotals[p.payment]||0)+p.amount; });
+  const payDetailsHTML=Object.entries(methodTotals).map(([m,v])=>`
+    <div class="pd-item">
+      <div class="pd-icon">${payIcon(m)}</div>
+      <div class="pd-name">${m}</div>
+      <div class="pd-amt">Rs. ${v.toLocaleString('en-PK')}</div>
+    </div>`).join('') || '<div style="color:#888;font-size:13px;padding:12px">Koi payment nahi</div>';
+
+  const today=getTodayDDMMYY();
+
   el.innerHTML=`
-    <div id="khataBlock">
-      <div class="khata-header">
-        <div class="kh-vendor">📓 ${vendor}</div>
-        <div class="kh-meta">${city?'📍 '+city:''}${mobile?'📞 '+mobile:''}</div>
-        <div class="kh-stats">
-          <div class="kh-stat"><div class="kh-stat-num red">PKR ${tb.toLocaleString('en-PK')}</div><div class="kh-stat-lbl">Total Billed</div></div>
-          <div class="kh-stat"><div class="kh-stat-num green">PKR ${tp.toLocaleString('en-PK')}</div><div class="kh-stat-lbl">Total Paid</div></div>
-          <div class="kh-stat"><div class="kh-stat-num gold">PKR ${Math.abs(bal).toLocaleString('en-PK')}</div><div class="kh-stat-lbl">Balance</div></div>
+  <div id="khataBlock" style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12)">
+
+    <!-- TOP HEADER -->
+    <div class="kh2-header">
+      <div class="kh2-left">
+        <div class="kh2-vendor">📓 ${vendor}</div>
+        <div class="kh2-meta">
+          ${mobile?`📞 ${mobile}`:''}
+          ${city?`&nbsp;&nbsp;📍 ${city}`:''}
         </div>
       </div>
-      <div class="khata-body">
-        <div class="khata-title-row">
-          <span class="khata-title">📋 Khata — Ledger Statement</span>
-          <button class="btn-save-img" onclick="saveKhataImage()">📷 Save Image</button>
-        </div>
-        ${rowsHTML}
-        <div class="khata-total-row">
-          <span class="ktr-label">Total / Remaining</span>
-          <span class="ktr-val">PKR ${Math.abs(bal).toLocaleString('en-PK')}</span>
-        </div>
-        <div class="khata-final">
-          <span class="kf-label">Final Status:</span>
-          <span class="kf-amount ${bal>0?'baqi':'clear'}">PKR ${Math.abs(bal).toLocaleString('en-PK')} ${bal>0?'BAQI':'CLEAR ✅'}</span>
+      <div class="kh2-right">
+        <div class="kh2-badge">KHATA</div>
+        <div class="kh2-date">📅 ${today}</div>
+      </div>
+    </div>
+
+    <!-- 3 STATS -->
+    <div class="kh2-stats">
+      <div class="kh2-stat">
+        <div class="kh2-stat-num red">Rs. ${tb.toLocaleString('en-PK')}</div>
+        <div class="kh2-stat-lbl">TOTAL BILLED</div>
+      </div>
+      <div class="kh2-stat" style="border-left:1px solid rgba(255,255,255,0.1);border-right:1px solid rgba(255,255,255,0.1)">
+        <div class="kh2-stat-num green">Rs. ${tp.toLocaleString('en-PK')}</div>
+        <div class="kh2-stat-lbl">TOTAL PAID</div>
+      </div>
+      <div class="kh2-stat">
+        <div class="kh2-stat-num gold">Rs. ${Math.abs(bal).toLocaleString('en-PK')}</div>
+        <div class="kh2-stat-lbl">BALANCE</div>
+      </div>
+    </div>
+
+    <!-- KHATA TABLE -->
+    <div class="kh2-table-wrap">
+      <div class="kh2-table-header">
+        <span class="kh2-table-title">📋 KHATA — LEDGER STATEMENT</span>
+        <button class="btn-save-img" onclick="saveKhataImage()">📷 Save Image</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="kh2-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>DATE</th>
+              <th>PARTICULARS</th>
+              <th>PAID<br><small>(IN)</small></th>
+              <th>BILLED<br><small>(OUT)</small></th>
+              <th>BALANCE</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${tableRows||'<tr><td colspan="7" style="text-align:center;padding:20px;color:#888">Koi entry nahi</td></tr>'}</tbody>
+        </table>
+      </div>
+
+      <!-- TOTAL ROW -->
+      <div class="kh2-total-row">
+        <div class="kh2-total-label">TOTAL / REMAINING</div>
+        <div class="kh2-total-vals">
+          <span class="kh2-tv-paid">Rs. ${tp.toLocaleString('en-PK')}</span>
+          <span class="kh2-tv-billed">Rs. ${tb.toLocaleString('en-PK')}</span>
+          <span class="kh2-tv-bal">Rs. ${Math.abs(bal).toLocaleString('en-PK')}</span>
         </div>
       </div>
-    </div>`;
+
+      <!-- FINAL STATUS -->
+      <div class="kh2-final">
+        <span class="kh2-final-label">FINAL STATUS</span>
+        <span class="kh2-final-amount ${bal>0?'':'kh2-clear'}">
+          Rs. ${Math.abs(bal).toLocaleString('en-PK')} ${bal>0?'BAQI':'CLEAR ✅'}
+        </span>
+      </div>
+    </div>
+
+    <!-- PAYMENT DETAILS -->
+    <div class="kh2-pd-section">
+      <div class="kh2-pd-title">PAYMENT DETAILS</div>
+      <div class="kh2-pd-grid">${payDetailsHTML}</div>
+      <div class="kh2-footer">${vendor} &nbsp;•&nbsp; Khata: ${vendor} &nbsp;•&nbsp; ${today}</div>
+    </div>
+
+  </div>`;
 }
 
 // Save khata as image
