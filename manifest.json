@@ -1,0 +1,40 @@
+{
+  "name": "VendorPro — Vendor Management",
+  "short_name": "VendorPro",
+  "description": "Professional Vendor Management System with Ledger & Reports",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1E1F3A",
+  "theme_color": "#6B7BF7",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Add Vendor",
+      "short_name": "Add",
+      "description": "Add a new vendor entry",
+      "url": "./index.html#add-vendor"
+    },
+    {
+      "name": "Reports",
+      "short_name": "Reports",
+      "description": "View all vendor reports",
+      "url": "./index.html#report"
+    }
+  ]
+}

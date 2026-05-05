@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#6B7BF7">
+<meta name="description" content="Professional Vendor Management System">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="VendorPro">
+<link rel="manifest" href="manifest.json">
+<title>VendorPro — Vendor Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 40 40" fill="none">
+        <rect width="40" height="40" rx="12" fill="url(#lg)"/>
+        <path d="M10 14h20M10 20h14M10 26h17" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="29" cy="26" r="5" fill="#C6F135" stroke="white" stroke-width="1.5"/>
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6B7BF7"/><stop offset="1" stop-color="#4B5BDA"/></linearGradient></defs>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-title">VendorPro</div>
+      <div class="logo-sub">Management Suite</div>
+    </div>
+  </div>
+  <div class="nav-section-label">MENU</div>
+  <ul class="nav-links">
+    <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="nav-icon">⊞</span><span>Dashboard</span></a></li>
+    <li><a href="#" class="nav-item" data-page="add-vendor" onclick="navigate('add-vendor')"><span class="nav-icon">＋</span><span>Add Bill / Payment</span></a></li>
+    <li><a href="#" class="nav-item" data-page="report" onclick="navigate('report')"><span class="nav-icon">⊟</span><span>All Reports</span></a></li>
+    <li><a href="#" class="nav-item" data-page="ledger" onclick="navigate('ledger')"><span class="nav-icon">◈</span><span>Ledger Book</span></a></li>
+  </ul>
+  <div class="sidebar-footer">
+    <div class="db-status" id="dbStatus"><span class="status-dot"></span> Database Ready</div>
+  </div>
+</nav>
+
+<header class="mobile-header">
+  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+  <div class="mobile-title">VendorPro</div>
+  <div class="mobile-badge" id="mobileBadge">0</div>
+</header>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<main class="main-content">
+
+  <!-- DASHBOARD -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div><h1 class="page-title">Dashboard</h1><p class="page-sub">Vendor Overview & Summary</p></div>
+      <button class="btn-primary" onclick="navigate('add-vendor')">+ Add Bill</button>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card stat-blue"><div class="stat-icon">👥</div><div class="stat-info"><div class="stat-num" id="statVendors">0</div><div class="stat-label">Total Vendors</div></div></div>
+      <div class="stat-card stat-green"><div class="stat-icon">📋</div><div class="stat-info"><div class="stat-num" id="statEntries">0</div><div class="stat-label">Total Bills</div></div></div>
+      <div class="stat-card stat-yellow"><div class="stat-icon">💰</div><div class="stat-info"><div class="stat-num" id="statAmount">0</div><div class="stat-label">Total Payable</div></div></div>
+      <div class="stat-card stat-purple"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-num" id="statPaid">0</div><div class="stat-label">Total Paid</div></div></div>
+    </div>
+    <div class="dashboard-bottom">
+      <div class="recent-card">
+        <div class="card-header-row"><h3>Recent Transactions</h3><button class="btn-link" onclick="navigate('report')">View All →</button></div>
+        <div class="recent-list" id="recentList"><div class="empty-state">No entries yet.</div></div>
+      </div>
+      <div class="payment-card">
+        <div class="card-header-row"><h3>Payment Breakdown</h3></div>
+        <div class="payment-chart">
+          <div class="pie-container"><canvas id="pieCanvas" width="140" height="140"></canvas></div>
+          <div class="payment-legend" id="paymentLegend"><div class="legend-empty">No data yet</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ADD BILL / PAYMENT PAGE -->
+  <section class="page" id="page-add-vendor">
+    <div class="page-header">
+      <div><h1 class="page-title" id="formTitle">Add Bill / Payment</h1><p class="page-sub">Bill ya payment darj karein</p></div>
+    </div>
+
+    <div class="form-container">
+      <input type="hidden" id="editId">
+      <input type="hidden" id="editMode"> <!-- 'bill' or 'payment' -->
+
+      <div class="form-tabs">
+        <button class="tab-btn active" id="tabBillBtn" onclick="switchTab('bill')">📋 Bill Entry</button>
+        <button class="tab-btn" id="tabPayBtn" onclick="switchTab('pay')">💳 Payment Entry</button>
+      </div>
+
+      <!-- BILL ENTRY -->
+      <div id="tabBill">
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Vendor Name <span class="req">*</span></label>
+            <div class="autocomplete-wrap">
+              <input type="text" id="fVendorName" placeholder="e.g. Ali Traders, Khan Suppliers..." class="form-input" oninput="vendorAutocomplete(this)" autocomplete="off">
+              <div class="autocomplete-list" id="autocompleteList"></div>
+            </div>
+          </div>
+          <div class="form-group"><label>Mobile <span class="opt">(optional)</span></label><input type="tel" id="fMobile" placeholder="03XX-XXXXXXX" class="form-input"></div>
+          <div class="form-group"><label>City <span class="opt">(optional)</span></label><input type="text" id="fCity" placeholder="Lahore, Karachi..." class="form-input"></div>
+          <div class="form-group"><label>Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label><input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input" oninput="formatDate(this)"></div>
+          <div class="form-group"><label>Bill No <span class="req">*</span></label><input type="text" id="fBillNo" placeholder="INV-001" class="form-input"></div>
+          <div class="form-group"><label>Bill Amount (PKR) <span class="req">*</span></label><input type="number" id="fAmount" placeholder="0.00" class="form-input" min="0"></div>
+          <div class="form-group full-width"><label>Description <span class="opt">(optional)</span></label><textarea id="fDescription" placeholder="Goods received, services rendered..." class="form-input form-textarea" rows="3"></textarea></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="clearBillForm()">✕ Clear</button>
+          <button class="btn-primary" onclick="saveBill()">💾 Save Bill</button>
+        </div>
+      </div>
+
+      <!-- PAYMENT ENTRY -->
+      <div id="tabPay" style="display:none">
+
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Vendor Select <span class="req">*</span></label>
+            <select id="pVendor" class="form-input" onchange="loadVendorBillsForPay()">
+              <option value="">— Vendor chunein —</option>
+            </select>
+          </div>
+
+          <!-- Outstanding summary box -->
+          <div class="form-group full-width" id="outstandingWrap" style="display:none">
+            <div class="outstanding-box">
+              <div class="out-item"><span class="out-label">📋 Total Bills</span><span class="out-num out-debit" id="outTotalBill">PKR 0</span></div>
+              <div class="out-item"><span class="out-label">✅ Total Paid</span><span class="out-num out-credit" id="outTotalPaid">PKR 0</span></div>
+              <div class="out-item highlight"><span class="out-label">⚡ Outstanding</span><span class="out-num out-bal" id="outBalance">PKR 0</span></div>
+            </div>
+          </div>
+
+          <div class="form-group full-width">
+            <label>Bill Reference <span class="opt">(optional — specific bill ke against)</span></label>
+            <select id="pBillRef" class="form-input" onchange="billSelected()">
+              <option value="">— General Payment (kisi bill ke against nahi) —</option>
+            </select>
+          </div>
+
+          <!-- Bill detail preview -->
+          <div class="form-group full-width" id="billPreviewWrap" style="display:none">
+            <div class="bill-preview" id="billPreview"></div>
+          </div>
+
+          <div class="form-group"><label>Payment Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label><input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input" oninput="formatDate(this)"></div>
+          <div class="form-group"><label>Amount Paid (PKR) <span class="req">*</span></label><input type="number" id="pAmount" placeholder="0.00" class="form-input" min="0" oninput="checkPayAmount()"></div>
+          <div class="form-group"><label>Payment Method <span class="req">*</span></label>
+            <select id="pPayment" class="form-input">
+              <option value="">— Select —</option>
+              <option value="Cash">💵 Cash</option>
+              <option value="Online">🌐 Online</option>
+              <option value="EasyPaisa">📱 EasyPaisa</option>
+              <option value="JazzCash">📲 JazzCash</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Receipt / Ref No <span class="opt">(optional)</span></label><input type="text" id="pRef" placeholder="TXN-12345..." class="form-input"></div>
+          <div class="form-group full-width"><label>Note <span class="opt">(optional)</span></label><textarea id="pNote" placeholder="Payment remarks..." class="form-input form-textarea" rows="2"></textarea></div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-secondary" onclick="clearPayForm()">✕ Clear</button>
+          <button class="btn-primary btn-pay" onclick="savePayment()">✅ Save Payment</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REPORT PAGE -->
+  <section class="page" id="page-report">
+    <div class="page-header">
+      <div><h1 class="page-title">All Reports</h1><p class="page-sub" id="reportCount">Showing all entries</p></div>
+      <div class="header-actions">
+        <button class="btn-outline" onclick="downloadReport()">⬇ Download</button>
+        <button class="btn-primary" onclick="navigate('add-vendor')">+ Add</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="🔍  Search vendor, bill..." class="search-input" oninput="filterReport()">
+      <select id="filterPayment" class="filter-select" onchange="filterReport()">
+        <option value="">All Methods</option>
+        <option value="Cash">Cash</option>
+        <option value="Online">Online</option>
+        <option value="EasyPaisa">EasyPaisa</option>
+        <option value="JazzCash">JazzCash</option>
+      </select>
+      <select id="filterType" class="filter-select" onchange="filterReport()">
+        <option value="">Bills + Payments</option>
+        <option value="bill">Bills Only</option>
+        <option value="payment">Payments Only</option>
+      </select>
+    </div>
+    <div id="reportTable"><div class="empty-state">No entries found.</div></div>
+  </section>
+
+  <!-- LEDGER PAGE -->
+  <section class="page" id="page-ledger">
+    <div class="page-header">
+      <div><h1 class="page-title">Ledger Book</h1><p class="page-sub">Vendor-wise Statement — Bills & Payments</p></div>
+      <div class="header-actions">
+        <button class="btn-outline" onclick="downloadLedger()">⬇ Download</button>
+      </div>
+    </div>
+
+    <div class="ledger-vendor-select">
+      <label>Vendor</label>
+      <select id="ledgerVendor" class="form-input" onchange="loadLedger()">
+        <option value="">— Vendor chunein —</option>
+      </select>
+      <button class="btn-primary btn-pay" onclick="openPaymentForVendor()" style="white-space:nowrap">💳 Payment</button>
+    </div>
+
+    <div id="ledgerContent"><div class="empty-state">Vendor select karein.</div></div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Edit</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+</script>
+<script src="app.js"></script>
+</body>
+</html>
