@@ -3,170 +3,210 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#6B7BF7">
-<meta name="description" content="Professional Vendor Management System">
+<meta name="theme-color" content="#1E1F3A">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VendorPro">
 <link rel="manifest" href="manifest.json">
-<title>VendorPro — Vendor Management</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>VendorPro</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- ===== TOP HEADER (FGI style) ===== -->
+<header class="app-header" id="appHeader">
+  <button class="hdr-menu" onclick="toggleSidebar()">☰</button>
+  <div class="hdr-brand">
+    <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+      <rect width="40" height="40" rx="10" fill="url(#hg)"/>
+      <path d="M10 14h20M10 20h14M10 26h17" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="29" cy="26" r="5" fill="#C6F135" stroke="white" stroke-width="1.5"/>
+      <defs><linearGradient id="hg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6B7BF7"/><stop offset="1" stop-color="#4B5BDA"/></linearGradient></defs>
+    </svg>
+    <span class="hdr-title">VendorPro</span>
+  </div>
+  <div class="hdr-actions">
+    <button class="hdr-btn" onclick="navigate('add-vendor')" id="hdrAddBtn">＋ Bill</button>
+    <div class="hdr-badge" id="mobileBadge">0</div>
+  </div>
+</header>
+
+<!-- ===== SIDEBAR ===== -->
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="logo-icon">
-      <svg viewBox="0 0 40 40" fill="none">
-        <rect width="40" height="40" rx="12" fill="url(#lg)"/>
-        <path d="M10 14h20M10 20h14M10 26h17" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-        <circle cx="29" cy="26" r="5" fill="#C6F135" stroke="white" stroke-width="1.5"/>
-        <defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6B7BF7"/><stop offset="1" stop-color="#4B5BDA"/></linearGradient></defs>
-      </svg>
-    </div>
-    <div>
-      <div class="logo-title">VendorPro</div>
-      <div class="logo-sub">Management Suite</div>
-    </div>
+    <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
+      <rect width="40" height="40" rx="10" fill="url(#sg)"/>
+      <path d="M10 14h20M10 20h14M10 26h17" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="29" cy="26" r="5" fill="#C6F135" stroke="white" stroke-width="1.5"/>
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6B7BF7"/><stop offset="1" stop-color="#4B5BDA"/></linearGradient></defs>
+    </svg>
+    <div><div class="logo-title">VendorPro</div><div class="logo-sub">Management Suite</div></div>
   </div>
-  <div class="nav-section-label">MENU</div>
+  <div class="nav-label">MENU</div>
   <ul class="nav-links">
-    <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="nav-icon">⊞</span><span>Dashboard</span></a></li>
-    <li><a href="#" class="nav-item" data-page="add-vendor" onclick="navigate('add-vendor')"><span class="nav-icon">＋</span><span>Add Bill / Payment</span></a></li>
-    <li><a href="#" class="nav-item" data-page="report" onclick="navigate('report')"><span class="nav-icon">⊟</span><span>All Reports</span></a></li>
-    <li><a href="#" class="nav-item" data-page="ledger" onclick="navigate('ledger')"><span class="nav-icon">◈</span><span>Ledger Book</span></a></li>
+    <li><a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')"><span>⊞</span> Dashboard</a></li>
+    <li><a class="nav-item" data-page="add-vendor" onclick="navigate('add-vendor')"><span>＋</span> Add Bill / Payment</a></li>
+    <li><a class="nav-item" data-page="report" onclick="navigate('report')"><span>⊟</span> Vendor Report</a></li>
+    <li><a class="nav-item" data-page="ledger" onclick="navigate('ledger')"><span>◈</span> Ledger Book</a></li>
   </ul>
-  <div class="sidebar-footer">
-    <div class="db-status" id="dbStatus"><span class="status-dot"></span> Database Ready</div>
-  </div>
+  <div class="sidebar-foot"><span class="status-dot"></span> <span id="dbStatus">Database Ready</span></div>
 </nav>
 
-<header class="mobile-header">
-  <button class="hamburger" onclick="toggleSidebar()">☰</button>
-  <div class="mobile-title">VendorPro</div>
-  <div class="mobile-badge" id="mobileBadge">0</div>
-</header>
-<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
-
+<!-- ===== MAIN ===== -->
 <main class="main-content">
 
-  <!-- DASHBOARD -->
+  <!-- ══════════════════════════════
+       DASHBOARD
+  ══════════════════════════════ -->
   <section class="page active" id="page-dashboard">
-    <div class="page-header">
-      <div><h1 class="page-title">Dashboard</h1><p class="page-sub">Vendor Overview & Summary</p></div>
-      <button class="btn-primary" onclick="navigate('add-vendor')">+ Add Bill</button>
+    <div class="section-header">
+      <h2>Dashboard</h2>
+      <button class="btn-sm-outline" onclick="navigate('report')">View All →</button>
     </div>
-    <div class="stats-grid">
-      <div class="stat-card stat-blue"><div class="stat-icon">👥</div><div class="stat-info"><div class="stat-num" id="statVendors">0</div><div class="stat-label">Total Vendors</div></div></div>
-      <div class="stat-card stat-green"><div class="stat-icon">📋</div><div class="stat-info"><div class="stat-num" id="statEntries">0</div><div class="stat-label">Total Bills</div></div></div>
-      <div class="stat-card stat-yellow"><div class="stat-icon">💰</div><div class="stat-info"><div class="stat-num" id="statAmount">0</div><div class="stat-label">Total Payable</div></div></div>
-      <div class="stat-card stat-purple"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-num" id="statPaid">0</div><div class="stat-label">Total Paid</div></div></div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+      <div class="stat-pill pill-blue"><div class="sp-icon">👥</div><div><div class="sp-num" id="statVendors">0</div><div class="sp-lbl">Vendors</div></div></div>
+      <div class="stat-pill pill-red"><div class="sp-icon">📋</div><div><div class="sp-num" id="statEntries">0</div><div class="sp-lbl">Bills</div></div></div>
+      <div class="stat-pill pill-yellow"><div class="sp-icon">💰</div><div><div class="sp-num" id="statAmount">0</div><div class="sp-lbl">Baqi</div></div></div>
+      <div class="stat-pill pill-green"><div class="sp-icon">✅</div><div><div class="sp-num" id="statPaid">0</div><div class="sp-lbl">Paid</div></div></div>
     </div>
-    <div class="dashboard-bottom">
-      <div class="recent-card">
-        <div class="card-header-row"><h3>Recent Transactions</h3><button class="btn-link" onclick="navigate('report')">View All →</button></div>
-        <div class="recent-list" id="recentList"><div class="empty-state">No entries yet.</div></div>
-      </div>
-      <div class="payment-card">
-        <div class="card-header-row"><h3>Payment Breakdown</h3></div>
-        <div class="payment-chart">
-          <div class="pie-container"><canvas id="pieCanvas" width="140" height="140"></canvas></div>
-          <div class="payment-legend" id="paymentLegend"><div class="legend-empty">No data yet</div></div>
-        </div>
+
+    <!-- Vendor Cards List -->
+    <div class="section-header mt16">
+      <h3>Vendor Summary</h3>
+      <input type="text" id="dashSearch" placeholder="🔍 Search..." class="dash-search" oninput="filterDashCards()">
+    </div>
+    <div id="vendorCards"><div class="empty-card">Koi vendor nahi mila. Bill add karein!</div></div>
+
+    <!-- Payment pie -->
+    <div class="card mt16">
+      <div class="card-hdr"><span>💳 Payment Breakdown</span></div>
+      <div class="pie-row">
+        <canvas id="pieCanvas" width="120" height="120"></canvas>
+        <div id="paymentLegend" class="pie-legend"><div class="empty-sm">No data</div></div>
       </div>
     </div>
   </section>
 
-  <!-- ADD BILL / PAYMENT PAGE -->
+  <!-- ══════════════════════════════
+       ADD BILL / PAYMENT
+  ══════════════════════════════ -->
   <section class="page" id="page-add-vendor">
-    <div class="page-header">
-      <div><h1 class="page-title" id="formTitle">Add Bill / Payment</h1><p class="page-sub">Bill ya payment darj karein</p></div>
+    <div class="section-header">
+      <h2 id="formTitle">Add Bill / Payment</h2>
     </div>
 
-    <div class="form-container">
-      <input type="hidden" id="editId">
-      <input type="hidden" id="editMode"> <!-- 'bill' or 'payment' -->
+    <input type="hidden" id="editId">
+    <input type="hidden" id="editMode">
 
-      <div class="form-tabs">
-        <button class="tab-btn active" id="tabBillBtn" onclick="switchTab('bill')">📋 Bill Entry</button>
-        <button class="tab-btn" id="tabPayBtn" onclick="switchTab('pay')">💳 Payment Entry</button>
-      </div>
+    <!-- Tabs -->
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabBillBtn" onclick="switchTab('bill')">📋 Bill Entry</button>
+      <button class="tab-btn" id="tabPayBtn" onclick="switchTab('pay')">💳 Payment</button>
+    </div>
 
-      <!-- BILL ENTRY -->
-      <div id="tabBill">
-        <div class="form-grid">
-          <div class="form-group full-width">
+    <!-- BILL ENTRY -->
+    <div id="tabBill">
+      <div class="card form-card">
+        <div class="card-hdr">📋 BILL DETAILS</div>
+        <div class="frow">
+          <div class="fgroup full">
             <label>Vendor Name <span class="req">*</span></label>
-            <div class="autocomplete-wrap">
-              <input type="text" id="fVendorName" placeholder="e.g. Ali Traders, Khan Suppliers..." class="form-input" oninput="vendorAutocomplete(this)" autocomplete="off">
-              <div class="autocomplete-list" id="autocompleteList"></div>
+            <div class="ac-wrap">
+              <input type="text" id="fVendorName" placeholder="e.g. Ali Traders..." class="finput" oninput="vendorAutocomplete(this)" autocomplete="off">
+              <div class="ac-list" id="autocompleteList"></div>
             </div>
           </div>
-          <div class="form-group"><label>Mobile <span class="opt">(optional)</span></label><input type="tel" id="fMobile" placeholder="03XX-XXXXXXX" class="form-input"></div>
-          <div class="form-group"><label>City <span class="opt">(optional)</span></label><input type="text" id="fCity" placeholder="Lahore, Karachi..." class="form-input"></div>
-          <div class="form-group">
-            <label>Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
-            <div class="date-picker-wrap">
-              <input type="date" id="fDateNative" class="form-input date-native" onchange="syncDate('fDateNative','fDate')">
-              <input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" oninput="formatDate(this,'fDateNative')" readonly>
-              <span class="date-cal-icon">📅</span>
+          <div class="fgroup">
+            <label>Mobile <span class="opt">(optional)</span></label>
+            <input type="tel" id="fMobile" placeholder="03XX-XXXXXXX" class="finput">
+          </div>
+          <div class="fgroup">
+            <label>City <span class="opt">(optional)</span></label>
+            <input type="text" id="fCity" placeholder="Lahore..." class="finput">
+          </div>
+          <div class="fgroup">
+            <label>Date <span class="req">*</span></label>
+            <div class="date-wrap">
+              <input type="date" id="fDateNative" class="finput date-native" onchange="syncDate('fDateNative','fDate')">
+              <div class="date-display" id="fDate" onclick="document.getElementById('fDateNative').showPicker()">
+                <span class="date-val" id="fDateVal">Tap to select</span>
+                <span class="date-ico">📅</span>
+              </div>
             </div>
           </div>
-          <div class="form-group"><label>Bill No <span class="req">*</span></label><input type="text" id="fBillNo" placeholder="INV-001" class="form-input"></div>
-          <div class="form-group"><label>Bill Amount (PKR) <span class="req">*</span></label><input type="number" id="fAmount" placeholder="0.00" class="form-input" min="0"></div>
-          <div class="form-group full-width"><label>Description <span class="opt">(optional)</span></label><textarea id="fDescription" placeholder="Goods received, services rendered..." class="form-input form-textarea" rows="3"></textarea></div>
-        </div>
-        <div class="form-actions">
-          <button class="btn-secondary" onclick="clearBillForm()">✕ Clear</button>
-          <button class="btn-primary" onclick="saveBill()">💾 Save Bill</button>
+          <div class="fgroup">
+            <label>Bill No <span class="req">*</span></label>
+            <input type="text" id="fBillNo" placeholder="INV-001" class="finput">
+          </div>
+          <div class="fgroup">
+            <label>Amount (PKR) <span class="req">*</span></label>
+            <input type="number" id="fAmount" placeholder="0" class="finput" min="0">
+          </div>
+          <div class="fgroup full">
+            <label>Description <span class="opt">(optional)</span></label>
+            <textarea id="fDescription" placeholder="Goods received, services..." class="finput ftextarea" rows="3"></textarea>
+          </div>
         </div>
       </div>
+      <div class="form-actions">
+        <button class="btn-ghost" onclick="clearBillForm()">✕ Clear</button>
+        <button class="btn-primary" onclick="saveBill()">💾 Save Bill</button>
+      </div>
+    </div>
 
-      <!-- PAYMENT ENTRY -->
-      <div id="tabPay" style="display:none">
-
-        <div class="form-grid">
-          <div class="form-group full-width">
-            <label>Vendor Select <span class="req">*</span></label>
-            <select id="pVendor" class="form-input" onchange="loadVendorBillsForPay()">
+    <!-- PAYMENT ENTRY -->
+    <div id="tabPay" style="display:none">
+      <div class="card form-card">
+        <div class="card-hdr">💳 PAYMENT DETAILS</div>
+        <div class="frow">
+          <div class="fgroup full">
+            <label>Vendor <span class="req">*</span></label>
+            <select id="pVendor" class="finput" onchange="loadVendorBillsForPay()">
               <option value="">— Vendor chunein —</option>
             </select>
           </div>
 
-          <!-- Outstanding summary box -->
-          <div class="form-group full-width" id="outstandingWrap" style="display:none">
-            <div class="outstanding-box">
-              <div class="out-item"><span class="out-label">📋 Total Bills</span><span class="out-num out-debit" id="outTotalBill">PKR 0</span></div>
-              <div class="out-item"><span class="out-label">✅ Total Paid</span><span class="out-num out-credit" id="outTotalPaid">PKR 0</span></div>
-              <div class="out-item highlight"><span class="out-label">⚡ Outstanding</span><span class="out-num out-bal" id="outBalance">PKR 0</span></div>
+          <!-- Outstanding box -->
+          <div class="fgroup full" id="outstandingWrap" style="display:none">
+            <div class="outstanding-strip">
+              <div class="os-item"><div class="os-lbl">📋 Total Bills</div><div class="os-val red" id="outTotalBill">0</div></div>
+              <div class="os-item"><div class="os-lbl">✅ Paid</div><div class="os-val green" id="outTotalPaid">0</div></div>
+              <div class="os-item os-highlight"><div class="os-lbl">⚡ Baqi</div><div class="os-val blue" id="outBalance">0</div></div>
             </div>
           </div>
 
-          <div class="form-group full-width">
-            <label>Bill Reference <span class="opt">(optional — specific bill ke against)</span></label>
-            <select id="pBillRef" class="form-input" onchange="billSelected()">
-              <option value="">— General Payment (kisi bill ke against nahi) —</option>
+          <div class="fgroup full">
+            <label>Bill Reference <span class="opt">(optional)</span></label>
+            <select id="pBillRef" class="finput" onchange="billSelected()">
+              <option value="">— General Payment —</option>
             </select>
           </div>
 
-          <!-- Bill detail preview -->
-          <div class="form-group full-width" id="billPreviewWrap" style="display:none">
-            <div class="bill-preview" id="billPreview"></div>
+          <div class="fgroup full" id="billPreviewWrap" style="display:none">
+            <div class="bill-preview-strip" id="billPreview"></div>
           </div>
 
-          <div class="form-group">
-            <label>Payment Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
-            <div class="date-picker-wrap">
-              <input type="date" id="pDateNative" class="form-input date-native" onchange="syncDate('pDateNative','pDate')">
-              <input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" oninput="formatDate(this,'pDateNative')" readonly>
-              <span class="date-cal-icon">📅</span>
+          <div class="fgroup">
+            <label>Payment Date <span class="req">*</span></label>
+            <div class="date-wrap">
+              <input type="date" id="pDateNative" class="finput date-native" onchange="syncDate('pDateNative','pDate')">
+              <div class="date-display" id="pDate" onclick="document.getElementById('pDateNative').showPicker()">
+                <span class="date-val" id="pDateVal">Tap to select</span>
+                <span class="date-ico">📅</span>
+              </div>
             </div>
           </div>
-          <div class="form-group"><label>Amount Paid (PKR) <span class="req">*</span></label><input type="number" id="pAmount" placeholder="0.00" class="form-input" min="0" oninput="checkPayAmount()"></div>
-          <div class="form-group"><label>Payment Method <span class="req">*</span></label>
-            <select id="pPayment" class="form-input">
+          <div class="fgroup">
+            <label>Amount Paid (PKR) <span class="req">*</span></label>
+            <input type="number" id="pAmount" placeholder="0" class="finput" min="0" oninput="checkPayAmount()">
+          </div>
+          <div class="fgroup">
+            <label>Payment Method <span class="req">*</span></label>
+            <select id="pPayment" class="finput">
               <option value="">— Select —</option>
               <option value="Cash">💵 Cash</option>
               <option value="Online">🌐 Online</option>
@@ -174,79 +214,71 @@
               <option value="JazzCash">📲 JazzCash</option>
             </select>
           </div>
-          <div class="form-group"><label>Receipt / Ref No <span class="opt">(optional)</span></label><input type="text" id="pRef" placeholder="TXN-12345..." class="form-input"></div>
-          <div class="form-group full-width"><label>Note <span class="opt">(optional)</span></label><textarea id="pNote" placeholder="Payment remarks..." class="form-input form-textarea" rows="2"></textarea></div>
+          <div class="fgroup">
+            <label>Receipt / Ref No <span class="opt">(optional)</span></label>
+            <input type="text" id="pRef" placeholder="TXN-12345..." class="finput">
+          </div>
+          <div class="fgroup full">
+            <label>Note <span class="opt">(optional)</span></label>
+            <textarea id="pNote" placeholder="Payment remarks..." class="finput ftextarea" rows="2"></textarea>
+          </div>
         </div>
-
-        <div class="form-actions">
-          <button class="btn-secondary" onclick="clearPayForm()">✕ Clear</button>
-          <button class="btn-primary btn-pay" onclick="savePayment()">✅ Save Payment</button>
-        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-ghost" onclick="clearPayForm()">✕ Clear</button>
+        <button class="btn-pay" onclick="savePayment()">✅ Save Payment</button>
       </div>
     </div>
   </section>
 
-  <!-- REPORT PAGE -->
+  <!-- ══════════════════════════════
+       VENDOR REPORT
+  ══════════════════════════════ -->
   <section class="page" id="page-report">
-    <div class="page-header">
-      <div><h1 class="page-title">All Reports</h1><p class="page-sub" id="reportCount">Showing all entries</p></div>
-      <div class="header-actions">
-        <button class="btn-outline" onclick="downloadReport()">⬇ Download</button>
-        <button class="btn-primary" onclick="navigate('add-vendor')">+ Add</button>
-      </div>
+    <div class="section-header">
+      <h2>Vendor Report</h2>
+      <button class="btn-sm-outline" onclick="downloadReport()">⬇ Download</button>
     </div>
-    <div class="filter-bar">
-      <input type="text" id="searchInput" placeholder="🔍  Search vendor, bill..." class="search-input" oninput="filterReport()">
-      <select id="filterPayment" class="filter-select" onchange="filterReport()">
-        <option value="">All Methods</option>
-        <option value="Cash">Cash</option>
-        <option value="Online">Online</option>
-        <option value="EasyPaisa">EasyPaisa</option>
-        <option value="JazzCash">JazzCash</option>
-      </select>
-      <select id="filterType" class="filter-select" onchange="filterReport()">
+
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="🔍  Vendor, Bill No search karein..." class="search-input" oninput="filterReport()">
+      <select id="filterType" class="filter-sel" onchange="filterReport()">
         <option value="">Bills + Payments</option>
         <option value="bill">Bills Only</option>
         <option value="payment">Payments Only</option>
       </select>
     </div>
-    <div id="reportTable"><div class="empty-state">No entries found.</div></div>
+
+    <div id="reportCount" class="count-label">Showing all</div>
+    <div id="reportList"><div class="empty-card">No entries found.</div></div>
   </section>
 
-  <!-- LEDGER PAGE -->
+  <!-- ══════════════════════════════
+       LEDGER BOOK
+  ══════════════════════════════ -->
   <section class="page" id="page-ledger">
-    <div class="page-header">
-      <div><h1 class="page-title">Ledger Book</h1><p class="page-sub">Vendor-wise Statement — Bills & Payments</p></div>
-      <div class="header-actions">
-        <button class="btn-outline" onclick="downloadLedger()">⬇ Download</button>
-      </div>
+    <div class="section-header">
+      <h2>Ledger Book</h2>
+      <button class="btn-sm-outline" onclick="downloadLedger()">⬇ Download</button>
     </div>
 
-    <div class="ledger-vendor-select">
-      <label>Vendor</label>
-      <select id="ledgerVendor" class="form-input" onchange="loadLedger()">
+    <div class="vendor-sel-bar">
+      <select id="ledgerVendor" class="finput" onchange="loadLedger()">
         <option value="">— Vendor chunein —</option>
       </select>
-      <button class="btn-primary btn-pay" onclick="openPaymentForVendor()" style="white-space:nowrap">💳 Payment</button>
+      <button class="btn-pay" onclick="openPaymentForVendor()">💳 Payment</button>
     </div>
 
-    <div id="ledgerContent"><div class="empty-state">Vendor select karein.</div></div>
+    <div id="ledgerContent"><div class="empty-card">Vendor select karein.</div></div>
   </section>
 
 </main>
 
+<!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Edit Modal -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="modalTitle">Edit</h3>
-      <button class="modal-close" onclick="closeModal()">✕</button>
-    </div>
-    <div id="modalBody"></div>
-  </div>
-</div>
+<!-- html2canvas for Save Image -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
 if ("serviceWorker" in navigator) {

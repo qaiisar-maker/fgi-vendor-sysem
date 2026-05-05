@@ -1,938 +1,697 @@
-/* ============================================
-   VendorPro — app.js v2.0
-   Two stores: 'bills' + 'payments'
-   Ledger auto-fetches bills, payments deduct balance
-   ============================================ */
+/* VendorPro v3 — app.js */
 'use strict';
 
 let db;
-const DB_NAME  = 'VendorProDB';
-const DB_VER   = 2;
-const BILLS    = 'bills';
-const PAYMENTS = 'payments';
+const DB_NAME='VendorProDB', DB_VER=2, BILLS='bills', PAYMENTS='payments';
 
-// ===========================
-// DATABASE
-// ===========================
-function initDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VER);
-
-    req.onupgradeneeded = e => {
-      const d = e.target.result;
-
-      // Bills store
-      if (!d.objectStoreNames.contains(BILLS)) {
-        const bs = d.createObjectStore(BILLS, { keyPath: 'id', autoIncrement: true });
-        bs.createIndex('vendorName', 'vendorName', { unique: false });
-        bs.createIndex('date', 'date', { unique: false });
+// ─── DB ───────────────────────────────────────
+function initDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME,DB_VER);
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains(BILLS)){
+        const bs=d.createObjectStore(BILLS,{keyPath:'id',autoIncrement:true});
+        bs.createIndex('vendorName','vendorName',{unique:false});
       }
-
-      // Payments store
-      if (!d.objectStoreNames.contains(PAYMENTS)) {
-        const ps = d.createObjectStore(PAYMENTS, { keyPath: 'id', autoIncrement: true });
-        ps.createIndex('vendorName', 'vendorName', { unique: false });
-        ps.createIndex('billId', 'billId', { unique: false });
-      }
-
-      // Migrate old single-store entries if upgrading from v1
-      if (e.oldVersion === 1 && d.objectStoreNames.contains('entries')) {
-        const oldStore = e.target.transaction.objectStore('entries');
-        const getAllOld = oldStore.getAll();
-        getAllOld.onsuccess = () => {
-          const items = getAllOld.result || [];
-          items.forEach(item => {
-            if (item.type === 'Debit') {
-              d.transaction(BILLS,'readwrite').objectStore(BILLS).add({
-                vendorName: item.vendorName, mobile: item.mobile||'', city: item.city||'',
-                date: item.date, billNo: item.billNo, amount: item.amount,
-                description: item.description||'', createdAt: item.createdAt||Date.now()
-              });
-            } else {
-              d.transaction(PAYMENTS,'readwrite').objectStore(PAYMENTS).add({
-                vendorName: item.vendorName, date: item.date, amount: item.amount,
-                payment: item.payment, billId: null, refNo: item.billNo||'',
-                note: item.description||'', createdAt: item.createdAt||Date.now()
-              });
-            }
-          });
-        };
+      if(!d.objectStoreNames.contains(PAYMENTS)){
+        const ps=d.createObjectStore(PAYMENTS,{keyPath:'id',autoIncrement:true});
+        ps.createIndex('vendorName','vendorName',{unique:false});
       }
     };
+    req.onsuccess=e=>{db=e.target.result;res();};
+    req.onerror=()=>rej(req.error);
+  });
+}
+const dbGetAll=s=>new Promise((r,j)=>{const q=db.transaction(s,'readonly').objectStore(s).getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>j(q.error);});
+const dbAdd=(s,o)=>new Promise((r,j)=>{const q=db.transaction(s,'readwrite').objectStore(s).add({...o,createdAt:Date.now()});q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);});
+const dbPut=(s,o)=>new Promise((r,j)=>{const q=db.transaction(s,'readwrite').objectStore(s).put(o);q.onsuccess=()=>r();q.onerror=()=>j(q.error);});
+const dbDel=(s,id)=>new Promise((r,j)=>{const q=db.transaction(s,'readwrite').objectStore(s).delete(id);q.onsuccess=()=>r();q.onerror=()=>j(q.error);});
 
-    req.onsuccess = e => { db = e.target.result; resolve(); };
-    req.onerror   = () => reject(req.error);
-  });
-}
-
-function dbGetAll(store) {
-  return new Promise((res, rej) => {
-    const req = db.transaction(store,'readonly').objectStore(store).getAll();
-    req.onsuccess = () => res(req.result || []);
-    req.onerror   = () => rej(req.error);
-  });
-}
-function dbAdd(store, obj) {
-  return new Promise((res, rej) => {
-    const req = db.transaction(store,'readwrite').objectStore(store).add({ ...obj, createdAt: Date.now() });
-    req.onsuccess = () => res(req.result);
-    req.onerror   = () => rej(req.error);
-  });
-}
-function dbPut(store, obj) {
-  return new Promise((res, rej) => {
-    const req = db.transaction(store,'readwrite').objectStore(store).put(obj);
-    req.onsuccess = () => res();
-    req.onerror   = () => rej(req.error);
-  });
-}
-function dbDelete(store, id) {
-  return new Promise((res, rej) => {
-    const req = db.transaction(store,'readwrite').objectStore(store).delete(id);
-    req.onsuccess = () => res();
-    req.onerror   = () => rej(req.error);
-  });
-}
-
-// ===========================
-// NAVIGATION
-// ===========================
-function navigate(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const pg = document.getElementById('page-' + page);
-  if (pg) pg.classList.add('active');
-  const ni = document.querySelector(`[data-page="${page}"]`);
-  if (ni) ni.classList.add('active');
+// ─── NAVIGATION ───────────────────────────────
+function navigate(pg){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const pel=document.getElementById('page-'+pg); if(pel) pel.classList.add('active');
+  const nel=document.querySelector(`[data-page="${pg}"]`); if(nel) nel.classList.add('active');
   closeSidebar();
-
-  if (page === 'dashboard')  loadDashboard();
-  if (page === 'report')     loadReport();
-  if (page === 'ledger')     initLedgerPage();
-  if (page === 'add-vendor') { resetAddPage(); populateVendorDropdowns(); setTimeout(setTodayDates, 30); }
+  if(pg==='dashboard') loadDashboard();
+  else if(pg==='report') loadReport();
+  else if(pg==='ledger') initLedgerPage();
+  else if(pg==='add-vendor'){ resetAddPage(); setTimeout(setTodayDates,40); }
 }
 
-function resetAddPage() {
-  document.getElementById('formTitle').textContent = 'Add Bill / Payment';
-  document.getElementById('editId').value = '';
-  document.getElementById('editMode').value = '';
-  clearBillForm();
-  clearPayForm();
-  switchTab('bill');
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('show'); }
+function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('show'); }
+
+// ─── TABS ─────────────────────────────────────
+function switchTab(t){
+  document.getElementById('tabBill').style.display=t==='bill'?'':'none';
+  document.getElementById('tabPay').style.display=t==='pay'?'':'none';
+  document.getElementById('tabBillBtn').classList.toggle('active',t==='bill');
+  document.getElementById('tabPayBtn').classList.toggle('active',t==='pay');
+  if(t==='pay'){populatePayVendor();setTimeout(setTodayDates,40);}
 }
 
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('show');
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('overlay').classList.remove('show');
+function resetAddPage(){
+  document.getElementById('formTitle').textContent='Add Bill / Payment';
+  document.getElementById('editId').value='';
+  document.getElementById('editMode').value='';
+  clearBillForm(); clearPayForm(); switchTab('bill');
 }
 
-// ===========================
-// TABS
-// ===========================
-function switchTab(tab) {
-  document.getElementById('tabBill').style.display    = tab === 'bill' ? '' : 'none';
-  document.getElementById('tabPay').style.display     = tab === 'pay'  ? '' : 'none';
-  document.getElementById('tabBillBtn').classList.toggle('active', tab === 'bill');
-  document.getElementById('tabPayBtn').classList.toggle('active',  tab === 'pay');
-  if (tab === 'pay') { populatePayVendor(); setTimeout(setTodayDates, 30); }
+// ─── DATE ─────────────────────────────────────
+function syncDate(nId,dispId){
+  const val=document.getElementById(nId)?.value;
+  if(!val) return;
+  const [y,m,d]=val.split('-');
+  const txt=`${d}/${m}/${y.slice(-2)}`;
+  // update hidden text value
+  const hidEl=document.getElementById(dispId==='fDate'?'fDate':'pDate');
+  if(hidEl) hidEl.dataset.val=txt;
+  // update display span
+  const spanId=dispId==='fDate'?'fDateVal':'pDateVal';
+  const sp=document.getElementById(spanId);
+  if(sp){ sp.textContent=txt; sp.classList.remove('placeholder'); }
 }
 
-// ===========================
-// DATE FUNCTIONS
-// ===========================
-
-// Native picker (yyyy-mm-dd) → text field (dd/mm/yy)
-function syncDate(nativeId, textId) {
-  const val = document.getElementById(nativeId)?.value;
-  if (!val) return;
-  const [yy4, mm, dd] = val.split('-');
-  document.getElementById(textId).value = `${dd}/${mm}/${yy4.slice(-2)}`;
+function getDateVal(dispId){
+  // get from dataset
+  const el=document.getElementById(dispId);
+  return el?el.dataset.val||'':'';
 }
 
-// Manual text input → sync native (readonly now, kept for edit mode)
-function formatDate(input, nativeId) {
-  let v = input.value.replace(/\D/g,'');
-  if (v.length > 6) v = v.slice(0,6);
-  let out = v.slice(0,2);
-  if (v.length >= 3) out += '/' + v.slice(2,4);
-  if (v.length >= 5) out += '/' + v.slice(4,6);
-  input.value = out;
-  if (nativeId && /^\d{2}\/\d{2}\/\d{2}$/.test(out)) {
-    const [dd,mm,yy] = out.split('/');
-    const nEl = document.getElementById(nativeId);
-    if (nEl) nEl.value = `20${yy}-${mm}-${dd}`;
-  }
-}
+function validateDate(d){ return /^\d{2}\/\d{2}\/\d{2}$/.test(d); }
 
-function validateDate(d) { return /^\d{2}\/\d{2}\/\d{2}$/.test(d); }
+function pad(n){ return String(n).padStart(2,'0'); }
+function getTodayDDMMYY(){ const n=new Date(); return `${pad(n.getDate())}/${pad(n.getMonth()+1)}/${String(n.getFullYear()).slice(-2)}`; }
+function getTodayNative(){ const n=new Date(); return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`; }
 
-function getTodayDDMMYY() {
-  const n = new Date();
-  return `${pad(n.getDate())}/${pad(n.getMonth()+1)}/${String(n.getFullYear()).slice(-2)}`;
-}
-function getTodayNative() {
-  const n = new Date();
-  return `${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;
-}
-function pad(n) { return String(n).padStart(2,'0'); }
-
-// Auto-set today on all date pickers (only if empty)
-function setTodayDates() {
-  const tn = getTodayNative();
-  const td = getTodayDDMMYY();
-  [['fDateNative','fDate'],['pDateNative','pDate']].forEach(([nId,tId]) => {
-    const nEl = document.getElementById(nId);
-    const tEl = document.getElementById(tId);
-    if (nEl && !nEl.value) nEl.value = tn;
-    if (tEl && !tEl.value) tEl.value = td;
+function setTodayDates(){
+  const tn=getTodayNative(); const td=getTodayDDMMYY();
+  [['fDateNative','fDate','fDateVal'],['pDateNative','pDate','pDateVal']].forEach(([nId,dId,sId])=>{
+    const nEl=document.getElementById(nId);
+    const dEl=document.getElementById(dId);
+    const sEl=document.getElementById(sId);
+    if(nEl&&!nEl.value){ nEl.value=tn; }
+    if(dEl&&!dEl.dataset.val){ dEl.dataset.val=td; }
+    if(sEl&&(sEl.textContent==='Tap to select'||!sEl.textContent)){ sEl.textContent=td; sEl.classList.remove('placeholder'); }
   });
 }
 
-// ===========================
-// VENDOR AUTOCOMPLETE (bill form)
-// ===========================
-async function vendorAutocomplete(input) {
-  const val = input.value.toLowerCase().trim();
-  const list = document.getElementById('autocompleteList');
-  if (!val) { list.style.display = 'none'; return; }
-
-  const bills = await dbGetAll(BILLS);
-  const vendors = [...new Set(bills.map(b => b.vendorName))].filter(v => v.toLowerCase().includes(val));
-
-  if (!vendors.length) { list.style.display = 'none'; return; }
-
-  list.innerHTML = vendors.map(v => `<div class="ac-item" onclick="selectVendor('${v.replace(/'/g,"\\'")}')"><span>👤</span> ${v}</div>`).join('');
-  list.style.display = 'block';
-
-  document.addEventListener('click', function close(e) {
-    if (!e.target.closest('.autocomplete-wrap')) {
-      list.style.display = 'none';
-      document.removeEventListener('click', close);
-    }
+// Allow clicking date display div
+document.addEventListener('DOMContentLoaded',()=>{
+  ['fDate','pDate'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('click',()=>{
+      const nId=id==='fDate'?'fDateNative':'pDateNative';
+      const nEl=document.getElementById(nId);
+      if(nEl){ try{ nEl.showPicker(); }catch(e){ nEl.click(); } }
+    });
   });
+});
+
+// ─── AUTOCOMPLETE ─────────────────────────────
+async function vendorAutocomplete(input){
+  const val=input.value.toLowerCase().trim();
+  const list=document.getElementById('autocompleteList');
+  if(!val){list.style.display='none';return;}
+  const bills=await dbGetAll(BILLS);
+  const vendors=[...new Set(bills.map(b=>b.vendorName))].filter(v=>v.toLowerCase().includes(val));
+  if(!vendors.length){list.style.display='none';return;}
+  list.innerHTML=vendors.map(v=>`<div class="ac-item" onclick="selectVendor('${v.replace(/'/g,"\\'")}')" >👤 ${v}</div>`).join('');
+  list.style.display='block';
+  document.addEventListener('click',function cl(e){ if(!e.target.closest('.ac-wrap')){ list.style.display='none'; document.removeEventListener('click',cl); } });
+}
+async function selectVendor(name){
+  document.getElementById('fVendorName').value=name;
+  document.getElementById('autocompleteList').style.display='none';
+  const bills=await dbGetAll(BILLS);
+  const last=[...bills].reverse().find(b=>b.vendorName===name);
+  if(last){ if(last.mobile) document.getElementById('fMobile').value=last.mobile; if(last.city) document.getElementById('fCity').value=last.city; }
 }
 
-function selectVendor(name) {
-  document.getElementById('fVendorName').value = name;
-  document.getElementById('autocompleteList').style.display = 'none';
-  // Auto-fill mobile/city from last entry
-  dbGetAll(BILLS).then(bills => {
-    const last = [...bills].reverse().find(b => b.vendorName === name);
-    if (last) {
-      if (last.mobile) document.getElementById('fMobile').value = last.mobile;
-      if (last.city)   document.getElementById('fCity').value   = last.city;
-    }
+// ─── SAVE BILL ────────────────────────────────
+async function saveBill(){
+  const editId=document.getElementById('editId').value;
+  const editMode=document.getElementById('editMode').value;
+  const vendorName=document.getElementById('fVendorName').value.trim();
+  const mobile=document.getElementById('fMobile').value.trim();
+  const city=document.getElementById('fCity').value.trim();
+  const date=getDateVal('fDate');
+  const billNo=document.getElementById('fBillNo').value.trim();
+  const amount=parseFloat(document.getElementById('fAmount').value);
+  const description=document.getElementById('fDescription').value.trim();
+
+  if(!vendorName) return showToast('Vendor name required','error');
+  if(!date||!validateDate(date)) return showToast('Date select karein','error');
+  if(!billNo) return showToast('Bill No required','error');
+  if(!amount||isNaN(amount)||amount<=0) return showToast('Valid amount darj karein','error');
+
+  const obj={vendorName,mobile,city,date,billNo,amount,description};
+  try{
+    if(editId&&editMode==='bill') await dbPut(BILLS,{...obj,id:parseInt(editId)});
+    else await dbAdd(BILLS,obj);
+    showToast(editId?'Bill updated ✓':'Bill saved ✓','success');
+    clearBillForm(); document.getElementById('editId').value=''; document.getElementById('editMode').value='';
+    document.getElementById('formTitle').textContent='Add Bill / Payment';
+    updateBadge();
+  }catch{ showToast('Error saving','error'); }
+}
+
+function clearBillForm(){
+  ['fVendorName','fMobile','fCity','fBillNo','fAmount','fDescription'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  const nEl=document.getElementById('fDateNative'); if(nEl) nEl.value='';
+  const dEl=document.getElementById('fDate'); if(dEl) dEl.dataset.val='';
+  const sEl=document.getElementById('fDateVal'); if(sEl){ sEl.textContent='Tap to select'; sEl.classList.add('placeholder'); }
+  setTimeout(setTodayDates,20);
+}
+
+// ─── PAYMENT DROPDOWN ─────────────────────────
+async function populatePayVendor(){
+  const bills=await dbGetAll(BILLS);
+  const vendors=[...new Set(bills.map(b=>b.vendorName))].sort();
+  const sel=document.getElementById('pVendor');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Vendor chunein —</option>'+vendors.map(v=>`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`).join('');
+  if(cur) loadVendorBillsForPay();
+}
+
+async function loadVendorBillsForPay(){
+  const vendor=document.getElementById('pVendor').value;
+  const ow=document.getElementById('outstandingWrap');
+  const br=document.getElementById('pBillRef');
+  const bpw=document.getElementById('billPreviewWrap');
+  if(!vendor){ow.style.display='none';br.innerHTML='<option value="">— General Payment —</option>';bpw.style.display='none';return;}
+
+  const [bills,payments]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
+  const vb=bills.filter(b=>b.vendorName===vendor).sort((a,b)=>dsk(a.date).localeCompare(dsk(b.date)));
+  const vp=payments.filter(p=>p.vendorName===vendor);
+  const tb=vb.reduce((s,b)=>s+b.amount,0);
+  const tp=vp.reduce((s,p)=>s+p.amount,0);
+  const bal=tb-tp;
+
+  ow.style.display='';
+  document.getElementById('outTotalBill').textContent='PKR '+tb.toLocaleString('en-PK');
+  document.getElementById('outTotalPaid').textContent='PKR '+tp.toLocaleString('en-PK');
+  const bEl=document.getElementById('outBalance');
+  bEl.textContent='PKR '+Math.abs(bal).toLocaleString('en-PK')+(bal<0?' (Overpaid)':'');
+  bEl.className='os-val '+(bal>0?'blue':'green');
+
+  br.innerHTML='<option value="">— General Payment —</option>';
+  vb.forEach(b=>{
+    const paid=payments.filter(p=>p.billId===b.id).reduce((s,p)=>s+p.amount,0);
+    const rem=b.amount-paid;
+    const ico=rem<=0?'✅':rem<b.amount?'⚡':'🔴';
+    br.innerHTML+=`<option value="${b.id}" data-rem="${rem}">${ico} ${b.billNo} | ${b.date} | PKR ${b.amount.toLocaleString('en-PK')} | Baqi: ${Math.max(0,rem).toLocaleString('en-PK')}</option>`;
   });
+  bpw.style.display='none';
 }
 
-// ===========================
-// SAVE BILL
-// ===========================
-async function saveBill() {
-  const editId   = document.getElementById('editId').value;
-  const editMode = document.getElementById('editMode').value;
-  const vendorName = document.getElementById('fVendorName').value.trim();
-  const mobile     = document.getElementById('fMobile').value.trim();
-  const city       = document.getElementById('fCity').value.trim();
-  const date       = document.getElementById('fDate').value.trim();
-  const billNo     = document.getElementById('fBillNo').value.trim();
-  const amount     = parseFloat(document.getElementById('fAmount').value);
-  const description= document.getElementById('fDescription').value.trim();
-
-  if (!vendorName) return showToast('Vendor name required', 'error');
-  if (!date || !validateDate(date)) return showToast('Date dd/mm/yy format mein', 'error');
-  if (!billNo) return showToast('Bill No required', 'error');
-  if (!amount || isNaN(amount) || amount <= 0) return showToast('Valid amount required', 'error');
-
-  const obj = { vendorName, mobile, city, date, billNo, amount, description };
-
-  try {
-    if (editId && editMode === 'bill') {
-      await dbPut(BILLS, { ...obj, id: parseInt(editId) });
-      showToast('Bill updated ✓', 'success');
-    } else {
-      await dbAdd(BILLS, obj);
-      showToast('Bill saved ✓', 'success');
-    }
-    clearBillForm();
-    document.getElementById('editId').value = '';
-    document.getElementById('editMode').value = '';
-    document.getElementById('formTitle').textContent = 'Add Bill / Payment';
-    updateMobileBadge();
-  } catch { showToast('Error saving bill', 'error'); }
+async function billSelected(){
+  const billId=parseInt(document.getElementById('pBillRef').value);
+  const bpw=document.getElementById('billPreviewWrap');
+  if(!billId){bpw.style.display='none';return;}
+  const [bills,payments]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
+  const b=bills.find(b=>b.id===billId); if(!b){bpw.style.display='none';return;}
+  const paid=payments.filter(p=>p.billId===billId).reduce((s,p)=>s+p.amount,0);
+  const rem=b.amount-paid;
+  document.getElementById('billPreview').innerHTML=`
+    <div class="bps-row"><span class="bps-lbl">Bill No</span><span class="bps-val">${b.billNo}</span></div>
+    <div class="bps-row"><span class="bps-lbl">Date</span><span class="bps-val">${b.date}</span></div>
+    <div class="bps-row"><span class="bps-lbl">Bill Amount</span><span class="bps-val" style="color:#DC2626">PKR ${b.amount.toLocaleString('en-PK')}</span></div>
+    <div class="bps-row"><span class="bps-lbl">Paid</span><span class="bps-val" style="color:#059669">PKR ${paid.toLocaleString('en-PK')}</span></div>
+    <div class="bps-row" style="width:100%"><span class="bps-lbl">⚡ Baqi</span><span class="bps-val" style="color:#4B5BDA;font-size:16px">PKR ${Math.max(0,rem).toLocaleString('en-PK')}</span></div>`;
+  bpw.style.display='';
+  if(rem>0) document.getElementById('pAmount').value=rem;
 }
 
-function clearBillForm() {
-  ['fVendorName','fMobile','fCity','fDate','fBillNo','fAmount','fDescription'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
+function checkPayAmount(){
+  const opt=document.getElementById('pBillRef').selectedOptions[0];
+  const rem=parseFloat(opt?.dataset.rem||0);
+  const entered=parseFloat(document.getElementById('pAmount').value||0);
+  const btn=document.querySelector('.btn-pay');
+  if(btn&&rem>0&&entered>rem) btn.style.background='linear-gradient(135deg,#F59E0B,#D97706)';
+  else if(btn) btn.style.background='';
 }
 
-// ===========================
-// PAYMENT VENDOR DROPDOWN
-// ===========================
-async function populatePayVendor() {
-  const bills = await dbGetAll(BILLS);
-  const vendors = [...new Set(bills.map(b => b.vendorName))].sort();
-  const sel = document.getElementById('pVendor');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— Vendor chunein —</option>' +
-    vendors.map(v => `<option value="${v}" ${v===current?'selected':''}>${v}</option>`).join('');
-  if (current) loadVendorBillsForPay();
+// ─── SAVE PAYMENT ─────────────────────────────
+async function savePayment(){
+  const editId=document.getElementById('editId').value;
+  const editMode=document.getElementById('editMode').value;
+  const vendor=document.getElementById('pVendor').value;
+  const billRef=document.getElementById('pBillRef').value;
+  const date=getDateVal('pDate');
+  const amount=parseFloat(document.getElementById('pAmount').value);
+  const payment=document.getElementById('pPayment').value;
+  const refNo=document.getElementById('pRef').value.trim();
+  const note=document.getElementById('pNote').value.trim();
+
+  if(!vendor) return showToast('Vendor select karein','error');
+  if(!date||!validateDate(date)) return showToast('Date select karein','error');
+  if(!amount||isNaN(amount)||amount<=0) return showToast('Valid amount darj karein','error');
+  if(!payment) return showToast('Payment method select karein','error');
+
+  const obj={vendorName:vendor,billId:billRef?parseInt(billRef):null,date,amount,payment,refNo,note};
+  try{
+    if(editId&&editMode==='payment') await dbPut(PAYMENTS,{...obj,id:parseInt(editId)});
+    else await dbAdd(PAYMENTS,obj);
+    showToast('Payment saved ✓','success');
+    clearPayForm(); document.getElementById('editId').value=''; document.getElementById('editMode').value='';
+    updateBadge(); loadVendorBillsForPay();
+  }catch{ showToast('Error saving','error'); }
 }
 
-async function populateVendorDropdowns() {
-  await populatePayVendor();
+function clearPayForm(){
+  ['pAmount','pRef','pNote'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const pv=document.getElementById('pVendor');if(pv)pv.value='';
+  const pp=document.getElementById('pPayment');if(pp)pp.value='';
+  const pb=document.getElementById('pBillRef');if(pb)pb.innerHTML='<option value="">— General Payment —</option>';
+  const ow=document.getElementById('outstandingWrap');if(ow)ow.style.display='none';
+  const bpw=document.getElementById('billPreviewWrap');if(bpw)bpw.style.display='none';
+  const nEl=document.getElementById('pDateNative');if(nEl)nEl.value='';
+  const dEl=document.getElementById('pDate');if(dEl)dEl.dataset.val='';
+  const sEl=document.getElementById('pDateVal');if(sEl){sEl.textContent='Tap to select';sEl.classList.add('placeholder');}
+  setTimeout(setTodayDates,20);
 }
 
-// ===========================
-// LOAD VENDOR BILLS FOR PAYMENT
-// ===========================
-async function loadVendorBillsForPay() {
-  const vendor = document.getElementById('pVendor').value;
-  const outWrap = document.getElementById('outstandingWrap');
-  const billRefSel = document.getElementById('pBillRef');
-  const billPrevWrap = document.getElementById('billPreviewWrap');
+// ─── DASHBOARD ────────────────────────────────
+let _dashData=[];
+async function loadDashboard(){
+  const [bills,payments]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
+  const vendors=[...new Set(bills.map(b=>b.vendorName))];
+  const tb=bills.reduce((s,b)=>s+b.amount,0);
+  const tp=payments.reduce((s,p)=>s+p.amount,0);
 
-  if (!vendor) {
-    outWrap.style.display = 'none';
-    billRefSel.innerHTML = '<option value="">— Pehle vendor chunein —</option>';
-    billPrevWrap.style.display = 'none';
-    return;
-  }
+  document.getElementById('statVendors').textContent=vendors.length;
+  document.getElementById('statEntries').textContent=bills.length;
+  document.getElementById('statAmount').textContent=formatPKR(Math.max(0,tb-tp));
+  document.getElementById('statPaid').textContent=formatPKR(tp);
 
-  const [bills, payments] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
-  const vBills    = bills.filter(b => b.vendorName === vendor).sort((a,b) => dateSort(a.date,b.date));
-  const vPayments = payments.filter(p => p.vendorName === vendor);
+  // Build vendor summary data
+  _dashData=vendors.map(v=>{
+    const vb=bills.filter(b=>b.vendorName===v);
+    const vp=payments.filter(p=>p.vendorName===v);
+    const total=vb.reduce((s,b)=>s+b.amount,0);
+    const paid=vp.reduce((s,p)=>s+p.amount,0);
+    const baqi=total-paid;
+    const lastDate=vb.map(b=>dsk(b.date)).sort().reverse()[0]||'000000';
+    const lastBill=vb.find(b=>dsk(b.date)===lastDate);
+    const city=lastBill?.city||'';
+    const mobile=lastBill?.mobile||'';
+    const invoices=vb.length;
+    const status=baqi<=0?'paid':paid>0?'partial':'unpaid';
+    return {name:v,city,mobile,total,paid,baqi,invoices,status,lastDate};
+  }).sort((a,b)=>b.lastDate.localeCompare(a.lastDate));
 
-  const totalBill = vBills.reduce((s,b) => s + b.amount, 0);
-  const totalPaid = vPayments.reduce((s,p) => s + p.amount, 0);
-  const outstanding = totalBill - totalPaid;
-
-  // Show outstanding box
-  outWrap.style.display = '';
-  document.getElementById('outTotalBill').textContent = 'PKR ' + totalBill.toLocaleString('en-PK');
-  document.getElementById('outTotalPaid').textContent = 'PKR ' + totalPaid.toLocaleString('en-PK');
-  const balEl = document.getElementById('outBalance');
-  balEl.textContent = 'PKR ' + Math.abs(outstanding).toLocaleString('en-PK') + (outstanding < 0 ? ' (Overpaid)' : '');
-  balEl.className = 'out-num ' + (outstanding > 0 ? 'out-bal' : 'out-credit');
-
-  // Bill reference dropdown — show unpaid / partial bills
-  billRefSel.innerHTML = '<option value="">— General Payment —</option>';
-  vBills.forEach(b => {
-    const paidForBill = payments.filter(p => p.billId === b.id).reduce((s,p) => s + p.amount, 0);
-    const remaining = b.amount - paidForBill;
-    const status = remaining <= 0 ? '✅' : remaining < b.amount ? '⚡' : '🔴';
-    billRefSel.innerHTML += `<option value="${b.id}" data-amount="${b.amount}" data-remaining="${remaining}">
-      ${status} ${b.billNo} | ${b.date} | PKR ${b.amount.toLocaleString('en-PK')} | Baki: PKR ${Math.max(0,remaining).toLocaleString('en-PK')}
-    </option>`;
-  });
-
-  billPrevWrap.style.display = 'none';
+  renderDashCards(_dashData);
+  drawPie(payments);
+  updateBadge();
 }
 
-async function billSelected() {
-  const billId = parseInt(document.getElementById('pBillRef').value);
-  const wrap = document.getElementById('billPreviewWrap');
-  if (!billId) { wrap.style.display = 'none'; return; }
-
-  const bills = await dbGetAll(BILLS);
-  const payments = await dbGetAll(PAYMENTS);
-  const bill = bills.find(b => b.id === billId);
-  if (!bill) { wrap.style.display = 'none'; return; }
-
-  const paidForBill = payments.filter(p => p.billId === billId).reduce((s,p) => s + p.amount, 0);
-  const remaining = bill.amount - paidForBill;
-
-  document.getElementById('billPreview').innerHTML = `
-    <div class="bp-row"><span class="bp-label">Bill No</span><span class="bp-val">${bill.billNo}</span></div>
-    <div class="bp-row"><span class="bp-label">Date</span><span class="bp-val">${bill.date}</span></div>
-    <div class="bp-row"><span class="bp-label">Bill Amount</span><span class="bp-val td-debit">PKR ${bill.amount.toLocaleString('en-PK')}</span></div>
-    <div class="bp-row"><span class="bp-label">Paid So Far</span><span class="bp-val td-credit">PKR ${paidForBill.toLocaleString('en-PK')}</span></div>
-    <div class="bp-row highlight"><span class="bp-label">⚡ Remaining</span><span class="bp-val out-bal">PKR ${Math.max(0,remaining).toLocaleString('en-PK')}</span></div>
-    ${bill.description ? `<div class="bp-row"><span class="bp-label">Note</span><span class="bp-val" style="color:#888">${bill.description}</span></div>` : ''}`;
-
-  wrap.style.display = '';
-
-  // Auto-fill amount with remaining
-  if (remaining > 0) document.getElementById('pAmount').value = remaining;
+function filterDashCards(){
+  const q=(document.getElementById('dashSearch')?.value||'').toLowerCase();
+  const filtered=_dashData.filter(v=>!q||v.name.toLowerCase().includes(q)||(v.city||'').toLowerCase().includes(q));
+  renderDashCards(filtered);
 }
 
-function checkPayAmount() {
-  // Just validate visually if overpaying
-  const billId = parseInt(document.getElementById('pBillRef').value);
-  if (!billId) return;
-  const opt = document.getElementById('pBillRef').selectedOptions[0];
-  const remaining = parseFloat(opt?.dataset.remaining || 0);
-  const entered = parseFloat(document.getElementById('pAmount').value || 0);
-  const btn = document.querySelector('.btn-pay');
-  if (btn && remaining > 0 && entered > remaining) {
-    btn.style.background = '#F59E0B';
-    btn.title = 'Amount bill se zyada hai!';
-  } else if (btn) {
-    btn.style.background = '';
-    btn.title = '';
-  }
-}
-
-// ===========================
-// SAVE PAYMENT
-// ===========================
-async function savePayment() {
-  const editId   = document.getElementById('editId').value;
-  const editMode = document.getElementById('editMode').value;
-  const vendor  = document.getElementById('pVendor').value;
-  const billRef = document.getElementById('pBillRef').value;
-  const date    = document.getElementById('pDate').value.trim();
-  const amount  = parseFloat(document.getElementById('pAmount').value);
-  const payment = document.getElementById('pPayment').value;
-  const refNo   = document.getElementById('pRef').value.trim();
-  const note    = document.getElementById('pNote').value.trim();
-
-  if (!vendor)  return showToast('Vendor select karein', 'error');
-  if (!date || !validateDate(date)) return showToast('Date dd/mm/yy format mein', 'error');
-  if (!amount || isNaN(amount) || amount <= 0) return showToast('Valid amount darj karein', 'error');
-  if (!payment) return showToast('Payment method select karein', 'error');
-
-  const obj = {
-    vendorName: vendor,
-    billId: billRef ? parseInt(billRef) : null,
-    date, amount, payment,
-    refNo, note
-  };
-
-  try {
-    if (editId && editMode === 'payment') {
-      await dbPut(PAYMENTS, { ...obj, id: parseInt(editId) });
-      showToast('Payment updated ✓', 'success');
-    } else {
-      await dbAdd(PAYMENTS, obj);
-      showToast('Payment save ho gayi ✓', 'success');
-    }
-    clearPayForm();
-    document.getElementById('editId').value = '';
-    document.getElementById('editMode').value = '';
-    updateMobileBadge();
-    // Refresh outstanding
-    loadVendorBillsForPay();
-  } catch { showToast('Error saving payment', 'error'); }
-}
-
-function clearPayForm() {
-  ['pDate','pAmount','pRef','pNote'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.value='';
-  });
-  const pv = document.getElementById('pVendor'); if(pv) pv.value='';
-  const pp = document.getElementById('pPayment'); if(pp) pp.value='';
-  const pb = document.getElementById('pBillRef'); if(pb) pb.innerHTML='<option value="">— Pehle vendor chunein —</option>';
-  const ow = document.getElementById('outstandingWrap'); if(ow) ow.style.display='none';
-  const bw = document.getElementById('billPreviewWrap'); if(bw) bw.style.display='none';
-}
-
-// ===========================
-// OPEN PAYMENT FROM LEDGER
-// ===========================
-function openPaymentForVendor() {
-  const vendor = document.getElementById('ledgerVendor').value;
-  navigate('add-vendor');
-  setTimeout(async () => {
-    switchTab('pay');
-    await populatePayVendor();
-    if (vendor) {
-      document.getElementById('pVendor').value = vendor;
-      await loadVendorBillsForPay();
-    }
-  }, 80);
-}
-
-// ===========================
-// DASHBOARD
-// ===========================
-async function loadDashboard() {
-  const [bills, payments] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
-  const vendors = [...new Set(bills.map(b => b.vendorName))];
-  const totalBill = bills.reduce((s,b) => s + b.amount, 0);
-  const totalPaid = payments.reduce((s,p) => s + p.amount, 0);
-  const today = getTodayDDMMYY();
-  const todayBills = bills.filter(b => b.date === today).length;
-
-  document.getElementById('statVendors').textContent = vendors.length;
-  document.getElementById('statEntries').textContent = bills.length;
-  document.getElementById('statAmount').textContent  = formatPKR(totalBill - totalPaid);
-  document.getElementById('statPaid').textContent    = formatPKR(totalPaid);
-
-  // Recent — merge bills + payments, sort by createdAt desc
-  const recentBills = bills.map(b => ({ ...b, _type:'bill' }));
-  const recentPays  = payments.map(p => ({ ...p, _type:'payment' }));
-  const all = [...recentBills, ...recentPays].sort((a,b) => (b.createdAt||0)-(a.createdAt||0)).slice(0,7);
-
-  const rl = document.getElementById('recentList');
-  if (!all.length) {
-    rl.innerHTML = '<div class="empty-state">No entries yet. Add your first bill!</div>';
-  } else {
-    rl.innerHTML = all.map(e => e._type === 'bill' ? `
-      <div class="recent-item">
-        <div class="ri-icon ri-bill">📋</div>
-        <div style="flex:1">
-          <div class="recent-vendor">${e.vendorName}</div>
-          <div class="recent-bill">${e.billNo} • ${e.date}</div>
+function renderDashCards(data){
+  const el=document.getElementById('vendorCards');
+  if(!data.length){el.innerHTML='<div class="empty-card">Koi vendor nahi mila.</div>';return;}
+  el.innerHTML=data.map(v=>`
+    <div class="vendor-card ${v.status==='paid'?'paid-card':v.status==='partial'?'partial-card':''}" onclick="openLedgerFor('${v.name.replace(/'/g,"\\'")}')">
+      <div class="vc-top">
+        <div>
+          <div class="vc-name">👤 ${v.name}</div>
+          <div class="vc-meta">
+            ${v.city?`📍 ${v.city}`:''}
+            ${v.mobile?`📞 ${v.mobile}`:''}
+          </div>
         </div>
-        <div style="text-align:right">
-          <div class="recent-amount td-debit">-PKR ${e.amount.toLocaleString('en-PK')}</div>
-          <div class="recent-date">Bill</div>
-        </div>
-      </div>` : `
-      <div class="recent-item credit">
-        <div class="ri-icon ri-pay">✅</div>
-        <div style="flex:1">
-          <div class="recent-vendor">${e.vendorName}</div>
-          <div class="recent-bill">${e.refNo||'Payment'} • ${e.date}</div>
-        </div>
-        <div style="text-align:right">
-          <div class="recent-amount td-credit">+PKR ${e.amount.toLocaleString('en-PK')}</div>
-          <div class="recent-date">${paymentIcon(e.payment)} ${e.payment}</div>
-        </div>
-      </div>`).join('');
-  }
-
-  drawPieChart(payments);
-  updateMobileBadge();
+        <span class="vc-badge ${v.status==='paid'?'badge-paid':v.status==='partial'?'badge-partial':'badge-unpaid'}">
+          ${v.status==='paid'?'PAID':v.status==='partial'?'PARTIAL':'UNPAID'}
+        </span>
+      </div>
+      <div class="vc-stats">
+        <div class="vc-stat"><div class="vc-stat-num blue">${v.invoices}</div><div class="vc-stat-lbl">Bills</div></div>
+        <div class="vc-stat"><div class="vc-stat-num red">Rs.${v.total.toLocaleString('en-PK')}</div><div class="vc-stat-lbl">Total</div></div>
+        <div class="vc-stat"><div class="vc-stat-num green">Rs.${v.paid.toLocaleString('en-PK')}</div><div class="vc-stat-lbl">Paid</div></div>
+        <div class="vc-stat"><div class="vc-stat-num gold">Rs.${Math.max(0,v.baqi).toLocaleString('en-PK')}</div><div class="vc-stat-lbl">Baqi</div></div>
+      </div>
+    </div>`).join('');
 }
 
-function drawPieChart(payments) {
-  const totals = {};
-  payments.forEach(p => { totals[p.payment] = (totals[p.payment]||0) + p.amount; });
-  const colors = { Cash:'#C8960A', Online:'#6B7BF7', EasyPaisa:'#059669', JazzCash:'#DB2777' };
-  const total = Object.values(totals).reduce((a,b)=>a+b,0);
-  const canvas = document.getElementById('pieCanvas');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0,0,140,140);
-  if (!total) { document.getElementById('paymentLegend').innerHTML = '<div class="legend-empty">No payments yet</div>'; return; }
-  let start = -Math.PI/2;
-  Object.entries(totals).forEach(([m,v]) => {
-    const sl = (v/total)*Math.PI*2;
-    ctx.beginPath(); ctx.moveTo(70,70); ctx.arc(70,70,55,start,start+sl); ctx.closePath();
-    ctx.fillStyle = colors[m]||'#999'; ctx.fill();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
-    start += sl;
+function openLedgerFor(name){
+  navigate('ledger');
+  setTimeout(()=>{ document.getElementById('ledgerVendor').value=name; loadLedger(); },60);
+}
+
+function drawPie(payments){
+  const totals={};
+  payments.forEach(p=>{totals[p.payment]=(totals[p.payment]||0)+p.amount;});
+  const colors={Cash:'#C8960A',Online:'#6B7BF7',EasyPaisa:'#059669',JazzCash:'#DB2777'};
+  const total=Object.values(totals).reduce((a,b)=>a+b,0);
+  const cv=document.getElementById('pieCanvas');
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,120,120);
+  if(!total){document.getElementById('paymentLegend').innerHTML='<div class="empty-sm">No payments yet</div>';return;}
+  let st=-Math.PI/2;
+  Object.entries(totals).forEach(([m,v])=>{
+    const sl=(v/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(60,60);ctx.arc(60,60,50,st,st+sl);ctx.closePath();
+    ctx.fillStyle=colors[m]||'#999';ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    st+=sl;
   });
-  ctx.beginPath(); ctx.arc(70,70,28,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
-  ctx.fillStyle='#1A1B3A'; ctx.font='bold 10px Outfit'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('Payments',70,63); ctx.font='bold 9px JetBrains Mono'; ctx.fillText(formatPKR(total),70,75);
-  document.getElementById('paymentLegend').innerHTML = Object.entries(totals).map(([m,v]) =>
-    `<div class="legend-item"><span class="legend-dot" style="background:${colors[m]||'#999'}"></span>
-     <span class="legend-label">${m}</span><span class="legend-val">${formatPKR(v)}</span></div>`).join('');
+  ctx.beginPath();ctx.arc(60,60,24,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.fillStyle=colors['Online']||'#6B7BF7';ctx.font='bold 9px Outfit';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#1A1B3A';ctx.fillText('PKR',60,56);ctx.font='bold 8px JetBrains Mono';ctx.fillText(formatPKR(total),60,66);
+  document.getElementById('paymentLegend').innerHTML=Object.entries(totals).map(([m,v])=>
+    `<div class="legend-item"><span class="legend-dot" style="background:${colors[m]||'#999'}"></span><span class="legend-lbl">${m}</span><span class="legend-val">${formatPKR(v)}</span></div>`).join('');
 }
 
-// ===========================
-// REPORT
-// ===========================
-let reportAllData = [];
-async function loadReport() {
-  const [bills, payments] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
-  reportAllData = [
-    ...bills.map(b => ({ ...b, _type:'bill' })),
-    ...payments.map(p => ({ ...p, _type:'payment' }))
-  ].sort((a,b) => dateSort2(b.date, a.date) || (b.createdAt||0)-(a.createdAt||0));
+// ─── REPORT ───────────────────────────────────
+let _reportData=[];
+async function loadReport(){
+  const [bills,payments]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
+  _reportData=[...bills.map(b=>({...b,_type:'bill'})),...payments.map(p=>({...p,_type:'payment'}))]
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   filterReport();
 }
 
-function filterReport() {
-  const q  = (document.getElementById('searchInput')?.value||'').toLowerCase();
-  const fp = document.getElementById('filterPayment')?.value||'';
-  const ft = document.getElementById('filterType')?.value||'';
-
-  const filtered = reportAllData.filter(e => {
-    const matchQ = !q || (e.vendorName||'').toLowerCase().includes(q) ||
-      (e.billNo||'').toLowerCase().includes(q) || (e.city||'').toLowerCase().includes(q) ||
-      (e.refNo||'').toLowerCase().includes(q);
-    const matchP = !fp || e.payment === fp;
-    const matchT = !ft || e._type === ft;
-    return matchQ && matchP && matchT;
+function filterReport(){
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const ft=document.getElementById('filterType')?.value||'';
+  const f=_reportData.filter(e=>{
+    const mq=!q||(e.vendorName||'').toLowerCase().includes(q)||(e.billNo||'').toLowerCase().includes(q)||(e.refNo||'').toLowerCase().includes(q);
+    const mt=!ft||e._type===ft;
+    return mq&&mt;
   });
-
-  document.getElementById('reportCount').textContent = `Showing ${filtered.length} entries`;
-  renderReport(filtered);
+  document.getElementById('reportCount').textContent=`${f.length} entries`;
+  renderReport(f);
 }
 
-function renderReport(data) {
-  const wrapper = document.getElementById('reportTable');
-  if (!data.length) { wrapper.innerHTML = '<div class="empty-state">No entries found.</div>'; return; }
-  const rows = data.map(e => e._type === 'bill' ? `
-    <tr>
-      <td><span class="type-badge type-debit">📋 Bill</span></td>
-      <td class="td-vendor">${e.vendorName}</td>
-      <td>${e.city||'—'}</td>
-      <td>${e.mobile||'—'}</td>
-      <td class="td-bill">${e.billNo}</td>
-      <td>${e.date}</td>
-      <td class="td-amount td-debit">PKR ${e.amount.toLocaleString('en-PK')}</td>
-      <td>—</td>
-      <td>${e.description||'—'}</td>
-      <td><div class="action-btns">
-        <button class="btn-edit" onclick="editBill(${e.id})">✎ Edit</button>
-        <button class="btn-delete" onclick="deleteBill(${e.id})">✕</button>
-      </div></td>
-    </tr>` : `
-    <tr style="background:#F0FDF4">
-      <td><span class="type-badge type-credit">✅ Payment</span></td>
-      <td class="td-vendor">${e.vendorName}</td>
-      <td>—</td><td>—</td>
-      <td class="td-bill">${e.refNo||'—'}</td>
-      <td>${e.date}</td>
-      <td class="td-amount td-credit">PKR ${e.amount.toLocaleString('en-PK')}</td>
-      <td><span class="payment-badge ${payClass(e.payment)}">${paymentIcon(e.payment)} ${e.payment}</span></td>
-      <td>${e.note||'—'}</td>
-      <td><div class="action-btns">
-        <button class="btn-edit" onclick="editPayment(${e.id})">✎ Edit</button>
-        <button class="btn-delete" onclick="deletePayment(${e.id})">✕</button>
-      </div></td>
-    </tr>`).join('');
-
-  wrapper.innerHTML = `<div class="table-wrapper"><table>
-    <thead><tr>
-      <th>Type</th><th>Vendor</th><th>City</th><th>Mobile</th>
-      <th>Bill/Ref</th><th>Date</th><th>Amount</th><th>Payment</th>
-      <th>Description</th><th>Action</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table></div>`;
+function renderReport(data){
+  const el=document.getElementById('reportList');
+  if(!data.length){el.innerHTML='<div class="empty-card">No entries found.</div>';return;}
+  el.innerHTML=data.map(e=>e._type==='bill'?`
+    <div class="report-card rc-type-bill">
+      <div class="rc-hdr">
+        <div>
+          <span class="rc-badge rc-badge-bill">📋 BILL</span>
+          <div class="rc-vendor">${e.vendorName}</div>
+          <div class="rc-sub">${e.billNo} &nbsp;•&nbsp; ${e.date} ${e.city?'&nbsp;•&nbsp;'+e.city:''}</div>
+        </div>
+        <div class="rc-amount debit">-PKR<br>${e.amount.toLocaleString('en-PK')}</div>
+      </div>
+      <div class="rc-foot">
+        <span class="rc-method">${e.description||'—'}</span>
+        <div class="rc-actions">
+          <button class="btn-edit-sm" onclick="editBill(${e.id})">✎ Edit</button>
+          <button class="btn-del-sm" onclick="deleteBill(${e.id})">✕</button>
+        </div>
+      </div>
+    </div>` : `
+    <div class="report-card rc-type-pay">
+      <div class="rc-hdr">
+        <div>
+          <span class="rc-badge rc-badge-pay">✅ PAYMENT</span>
+          <div class="rc-vendor">${e.vendorName}</div>
+          <div class="rc-sub">${e.refNo||'Payment'} &nbsp;•&nbsp; ${e.date}</div>
+        </div>
+        <div class="rc-amount credit">+PKR<br>${e.amount.toLocaleString('en-PK')}</div>
+      </div>
+      <div class="rc-foot">
+        <span class="rc-method"><span class="pay-badge ${payClass(e.payment)}">${payIcon(e.payment)} ${e.payment}</span> ${e.note||''}</span>
+        <div class="rc-actions">
+          <button class="btn-edit-sm" onclick="editPayment(${e.id})">✎ Edit</button>
+          <button class="btn-del-sm" onclick="deletePayment(${e.id})">✕</button>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
-// ===========================
-// LEDGER
-// ===========================
-async function initLedgerPage() {
-  const bills = await dbGetAll(BILLS);
-  const vendors = [...new Set(bills.map(b => b.vendorName))].sort();
-  const sel = document.getElementById('ledgerVendor');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">— Vendor chunein —</option>' +
-    vendors.map(v => `<option value="${v}" ${v===current?'selected':''}>${v}</option>`).join('');
-  if (current) loadLedger();
+// ─── LEDGER ───────────────────────────────────
+async function initLedgerPage(){
+  const bills=await dbGetAll(BILLS);
+  const vendors=[...new Set(bills.map(b=>b.vendorName))].sort();
+  const sel=document.getElementById('ledgerVendor');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Vendor chunein —</option>'+vendors.map(v=>`<option value="${v}" ${v===cur?'selected':''}>${v}</option>`).join('');
+  if(cur) loadLedger();
 }
 
-async function loadLedger() {
-  const vendor = document.getElementById('ledgerVendor').value;
-  const content = document.getElementById('ledgerContent');
-  if (!vendor) { content.innerHTML = '<div class="empty-state">Vendor select karein.</div>'; return; }
+async function loadLedger(){
+  const vendor=document.getElementById('ledgerVendor').value;
+  const el=document.getElementById('ledgerContent');
+  if(!vendor){el.innerHTML='<div class="empty-card">Vendor select karein.</div>';return;}
 
-  const [bills, allPayments] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
-  const vBills    = bills.filter(b => b.vendorName === vendor).sort((a,b) => dateSort(a.date,b.date));
-  const vPayments = allPayments.filter(p => p.vendorName === vendor).sort((a,b) => dateSort(a.date,b.date));
+  const [bills,allPay]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
+  const vb=bills.filter(b=>b.vendorName===vendor).sort((a,b)=>dsk(a.date).localeCompare(dsk(b.date)));
+  const vp=allPay.filter(p=>p.vendorName===vendor).sort((a,b)=>dsk(a.date).localeCompare(dsk(b.date)));
 
-  if (!vBills.length && !vPayments.length) {
-    content.innerHTML = '<div class="empty-state">Is vendor ki koi entry nahi mili.</div>';
-    return;
-  }
+  const tb=vb.reduce((s,b)=>s+b.amount,0);
+  const tp=vp.reduce((s,p)=>s+p.amount,0);
+  const bal=tb-tp;
+  const city=vb[0]?.city||''; const mobile=vb[0]?.mobile||'';
 
-  // Build combined ledger rows: bills = debit, payments = credit
-  const rows = [];
-  vBills.forEach(b => rows.push({ ...b, _type:'bill', _sortKey: dateSortKey(b.date) + String(b.createdAt||0).padStart(15,'0') }));
-  vPayments.forEach(p => rows.push({ ...p, _type:'payment', _sortKey: dateSortKey(p.date) + String(p.createdAt||0).padStart(15,'0') }));
-  rows.sort((a,b) => a._sortKey.localeCompare(b._sortKey));
+  // Merge & sort
+  const rows=[...vb.map(b=>({...b,_type:'bill',_sk:dsk(b.date)+String(b.createdAt||0).padStart(15,'0')})),
+              ...vp.map(p=>({...p,_type:'payment',_sk:dsk(p.date)+String(p.createdAt||0).padStart(15,'0')}))];
+  rows.sort((a,b)=>a._sk.localeCompare(b._sk));
 
-  let balance = 0, totalDebit = 0, totalCredit = 0;
-  const tableRows = rows.map(r => {
-    if (r._type === 'bill') {
-      balance -= r.amount;
-      totalDebit += r.amount;
-
-      // Find payments against this bill
-      const billPayments = vPayments.filter(p => p.billId === r.id);
-      const paidForBill  = billPayments.reduce((s,p) => s + p.amount, 0);
-      const remaining    = r.amount - paidForBill;
-      const statusBadge  = remaining <= 0
-        ? '<span class="pay-status paid">✅ Paid</span>'
-        : remaining < r.amount
-        ? '<span class="pay-status partial">⚡ Partial</span>'
-        : '<span class="pay-status unpaid">🔴 Unpaid</span>';
-
-      return `<tr class="row-bill">
-        <td>${r.date}</td>
-        <td class="td-bill">${r.billNo}</td>
-        <td>${r.description||'—'}</td>
-        <td>—</td>
-        <td class="td-amount td-debit">PKR ${r.amount.toLocaleString('en-PK')}</td>
-        <td>—</td>
-        <td class="td-amount" style="color:${balance<0?'#EF4444':'#059669'};font-weight:700">
-          PKR ${Math.abs(balance).toLocaleString('en-PK')} ${balance<0?'<small style="font-size:10px">(Dr)</small>':'<small>(Cr)</small>'}
-        </td>
-        <td>${statusBadge}</td>
-        <td><div class="action-btns">
-          <button class="btn-edit" onclick="editBill(${r.id})">✎</button>
-          <button class="btn-delete" onclick="deleteBill(${r.id},true)">✕</button>
-        </div></td>
-      </tr>`;
-
-    } else {
-      balance += r.amount;
-      totalCredit += r.amount;
-      const billLabel = r.billId
-        ? (() => { const b = vBills.find(b=>b.id===r.billId); return b ? `Against: ${b.billNo}` : ''; })()
-        : 'General';
-
-      return `<tr class="row-pay">
-        <td>${r.date}</td>
-        <td class="td-bill">${r.refNo||'—'}</td>
-        <td>${r.note||billLabel||'—'}</td>
-        <td><span class="payment-badge ${payClass(r.payment)}">${paymentIcon(r.payment)} ${r.payment}</span></td>
-        <td>—</td>
-        <td class="td-amount td-credit">PKR ${r.amount.toLocaleString('en-PK')}</td>
-        <td class="td-amount" style="color:${balance<0?'#EF4444':'#059669'};font-weight:700">
-          PKR ${Math.abs(balance).toLocaleString('en-PK')} ${balance<0?'<small style="font-size:10px">(Dr)</small>':'<small>(Cr)</small>'}
-        </td>
-        <td><span class="pay-status paid">✅ Payment</span></td>
-        <td><div class="action-btns">
-          <button class="btn-edit" onclick="editPayment(${r.id})">✎</button>
-          <button class="btn-delete" onclick="deletePayment(${r.id},true)">✕</button>
-        </div></td>
-      </tr>`;
+  let runBal=0; let num=0;
+  const rowsHTML=rows.map(r=>{
+    num++;
+    if(r._type==='bill'){
+      runBal-=r.amount;
+      const paidForBill=allPay.filter(p=>p.billId===r.id).reduce((s,p)=>s+p.amount,0);
+      const rem=r.amount-paidForBill;
+      const statusBadge=rem<=0?'<span class="pay-status-sm pss-paid">✅ Paid</span>':rem<r.amount?'<span class="pay-status-sm pss-partial">⚡ Partial</span>':'<span class="pay-status-sm pss-unpaid">🔴 Unpaid</span>';
+      return `<div class="ledger-row row-bill">
+        <div class="lr-num">${num}</div>
+        <div class="lr-body">
+          <div class="lr-top"><span class="lr-date">${r.date}</span><span class="lr-bill">${r.billNo}</span></div>
+          ${r.description?`<div class="lr-desc">${r.description}</div>`:''}
+          <div class="lr-bottom">
+            <span class="lr-debit">-PKR ${r.amount.toLocaleString('en-PK')}</span>
+            <span class="lr-balance">Bal: PKR ${Math.abs(runBal).toLocaleString('en-PK')} ${runBal<0?'Dr':'Cr'}</span>
+          </div>
+        </div>
+        <div class="lr-actions">
+          ${statusBadge}
+          <button class="btn-edit-sm" onclick="editBill(${r.id})">✎</button>
+          <button class="btn-del-sm" onclick="deleteBill(${r.id},true)">✕</button>
+        </div>
+      </div>`;
+    }else{
+      runBal+=r.amount;
+      const billLabel=r.billId?(()=>{const b=vb.find(b=>b.id===r.billId);return b?`Against: ${b.billNo}`:''})():'General';
+      return `<div class="ledger-row row-pay">
+        <div class="lr-num">${num}</div>
+        <div class="lr-body">
+          <div class="lr-top"><span class="lr-date">${r.date}</span><span class="lr-bill" style="color:#059669">${r.refNo||billLabel||'Payment'}</span></div>
+          <div class="lr-desc"><span class="pay-badge ${payClass(r.payment)}">${payIcon(r.payment)} ${r.payment}</span>${r.note?' — '+r.note:''}</div>
+          <div class="lr-bottom">
+            <span class="lr-credit">+PKR ${r.amount.toLocaleString('en-PK')}</span>
+            <span class="lr-balance" style="color:${runBal<0?'#EF4444':'#059669'}">Bal: PKR ${Math.abs(runBal).toLocaleString('en-PK')} ${runBal<0?'Dr':'Cr'}</span>
+          </div>
+        </div>
+        <div class="lr-actions">
+          <span class="pay-status-sm pss-paid">✅ Paid</span>
+          <button class="btn-edit-sm" onclick="editPayment(${r.id})">✎</button>
+          <button class="btn-del-sm" onclick="deletePayment(${r.id},true)">✕</button>
+        </div>
+      </div>`;
     }
   }).join('');
 
-  content.innerHTML = `
-    <div class="ledger-summary">
-      <div class="ledger-sum-card">
-        <div class="ledger-sum-label">Total Debit (Bills)</div>
-        <div class="ledger-sum-val sum-debit">PKR ${totalDebit.toLocaleString('en-PK')}</div>
-      </div>
-      <div class="ledger-sum-card">
-        <div class="ledger-sum-label">Total Credit (Payments)</div>
-        <div class="ledger-sum-val sum-credit">PKR ${totalCredit.toLocaleString('en-PK')}</div>
-      </div>
-      <div class="ledger-sum-card">
-        <div class="ledger-sum-label">Net Balance</div>
-        <div class="ledger-sum-val ${balance<0?'sum-debit':'sum-credit'}">
-          PKR ${Math.abs(balance).toLocaleString('en-PK')} ${balance<0?'(Dr)':'(Cr)'}
+  el.innerHTML=`
+    <div id="khataBlock">
+      <div class="khata-header">
+        <div class="kh-vendor">📓 ${vendor}</div>
+        <div class="kh-meta">${city?'📍 '+city:''}${mobile?'📞 '+mobile:''}</div>
+        <div class="kh-stats">
+          <div class="kh-stat"><div class="kh-stat-num red">PKR ${tb.toLocaleString('en-PK')}</div><div class="kh-stat-lbl">Total Billed</div></div>
+          <div class="kh-stat"><div class="kh-stat-num green">PKR ${tp.toLocaleString('en-PK')}</div><div class="kh-stat-lbl">Total Paid</div></div>
+          <div class="kh-stat"><div class="kh-stat-num gold">PKR ${Math.abs(bal).toLocaleString('en-PK')}</div><div class="kh-stat-lbl">Balance</div></div>
         </div>
       </div>
-    </div>
-    <div class="table-wrapper">
-      <table id="ledgerTable">
-        <thead><tr>
-          <th>Date</th><th>Bill/Ref No</th><th>Description</th>
-          <th>Payment Method</th><th>Debit</th><th>Credit</th>
-          <th>Balance</th><th>Status</th><th>Action</th>
-        </tr></thead>
-        <tbody>${tableRows}</tbody>
-      </table>
+      <div class="khata-body">
+        <div class="khata-title-row">
+          <span class="khata-title">📋 Khata — Ledger Statement</span>
+          <button class="btn-save-img" onclick="saveKhataImage()">📷 Save Image</button>
+        </div>
+        ${rowsHTML}
+        <div class="khata-total-row">
+          <span class="ktr-label">Total / Remaining</span>
+          <span class="ktr-val">PKR ${Math.abs(bal).toLocaleString('en-PK')}</span>
+        </div>
+        <div class="khata-final">
+          <span class="kf-label">Final Status:</span>
+          <span class="kf-amount ${bal>0?'baqi':'clear'}">PKR ${Math.abs(bal).toLocaleString('en-PK')} ${bal>0?'BAQI':'CLEAR ✅'}</span>
+        </div>
+      </div>
     </div>`;
 }
 
-// ===========================
-// EDIT / DELETE BILL
-// ===========================
-async function editBill(id) {
-  const bills = await dbGetAll(BILLS);
-  const b = bills.find(b => b.id === id);
-  if (!b) return;
-  navigate('add-vendor');
-  setTimeout(() => {
-    switchTab('bill');
-    document.getElementById('formTitle').textContent = 'Edit Bill';
-    document.getElementById('editId').value = id;
-    document.getElementById('editMode').value = 'bill';
-    document.getElementById('fVendorName').value = b.vendorName;
-    document.getElementById('fMobile').value = b.mobile||'';
-    document.getElementById('fCity').value = b.city||'';
-    document.getElementById('fDate').value = b.date;
-    // Sync native picker
-    if (b.date && validateDate(b.date)) {
-      const [dd,mm,yy] = b.date.split('/');
-      document.getElementById('fDateNative').value = `20${yy}-${mm}-${dd}`;
-    }
-    document.getElementById('fBillNo').value = b.billNo;
-    document.getElementById('fAmount').value = b.amount;
-    document.getElementById('fDescription').value = b.description||'';
-  }, 60);
+// Save khata as image
+async function saveKhataImage(){
+  const el=document.getElementById('khataBlock');
+  if(!el){showToast('Ledger not loaded','error');return;}
+  showToast('Image bana raha hai...','info');
+  try{
+    const canvas=await html2canvas(el,{scale:2,backgroundColor:'#F2F3FA',useCORS:true,logging:false});
+    const link=document.createElement('a');
+    const vendor=document.getElementById('ledgerVendor').value||'Ledger';
+    const today=getTodayDDMMYY().replace(/\//g,'');
+    link.download=`Khata_${vendor.replace(/\s/g,'_')}_${today}.png`;
+    link.href=canvas.toDataURL('image/png');
+    document.body.appendChild(link);link.click();document.body.removeChild(link);
+    showToast('Image saved! ✓','success');
+  }catch(e){ console.error(e); showToast('Image save failed','error'); }
 }
 
-async function deleteBill(id, fromLedger=false) {
-  // Check if payments against this bill
-  const payments = await dbGetAll(PAYMENTS);
-  const linked = payments.filter(p => p.billId === id);
-  let msg = 'Is bill ko delete karein?';
-  if (linked.length) msg += `\n\n⚠ Is bill ke against ${linked.length} payment(s) hain. Woh bhi delete hongi.`;
-  if (!confirm(msg)) return;
-  if (linked.length) await Promise.all(linked.map(p => dbDelete(PAYMENTS, p.id)));
-  await dbDelete(BILLS, id);
-  showToast('Bill deleted', 'info');
-  updateMobileBadge();
-  if (fromLedger) loadLedger(); else loadReport();
+// Open payment from ledger
+function openPaymentForVendor(){
+  const vendor=document.getElementById('ledgerVendor').value;
+  navigate('add-vendor');
+  setTimeout(async()=>{ switchTab('pay'); await populatePayVendor(); if(vendor){document.getElementById('pVendor').value=vendor;await loadVendorBillsForPay();}},80);
+}
+
+// ─── EDIT / DELETE ────────────────────────────
+async function editBill(id){
+  const bills=await dbGetAll(BILLS);
+  const b=bills.find(b=>b.id===id); if(!b)return;
+  navigate('add-vendor');
+  setTimeout(()=>{
+    switchTab('bill');
+    document.getElementById('formTitle').textContent='Edit Bill';
+    document.getElementById('editId').value=id;
+    document.getElementById('editMode').value='bill';
+    document.getElementById('fVendorName').value=b.vendorName;
+    document.getElementById('fMobile').value=b.mobile||'';
+    document.getElementById('fCity').value=b.city||'';
+    document.getElementById('fBillNo').value=b.billNo;
+    document.getElementById('fAmount').value=b.amount;
+    document.getElementById('fDescription').value=b.description||'';
+    // set date
+    if(b.date&&validateDate(b.date)){
+      const [dd,mm,yy]=b.date.split('/');
+      const nEl=document.getElementById('fDateNative');
+      if(nEl) nEl.value=`20${yy}-${mm}-${dd}`;
+      const dEl=document.getElementById('fDate'); if(dEl) dEl.dataset.val=b.date;
+      const sEl=document.getElementById('fDateVal'); if(sEl){sEl.textContent=b.date;sEl.classList.remove('placeholder');}
+    }
+  },60);
+}
+
+async function editPayment(id){
+  const payments=await dbGetAll(PAYMENTS);
+  const p=payments.find(p=>p.id===id); if(!p)return;
+  navigate('add-vendor');
+  setTimeout(async()=>{
+    switchTab('pay'); await populatePayVendor();
+    document.getElementById('formTitle').textContent='Edit Payment';
+    document.getElementById('editId').value=id;
+    document.getElementById('editMode').value='payment';
+    document.getElementById('pVendor').value=p.vendorName;
+    await loadVendorBillsForPay();
+    if(p.billId) document.getElementById('pBillRef').value=p.billId;
+    document.getElementById('pAmount').value=p.amount;
+    document.getElementById('pPayment').value=p.payment;
+    document.getElementById('pRef').value=p.refNo||'';
+    document.getElementById('pNote').value=p.note||'';
+    if(p.date&&validateDate(p.date)){
+      const [dd,mm,yy]=p.date.split('/');
+      const nEl=document.getElementById('pDateNative'); if(nEl) nEl.value=`20${yy}-${mm}-${dd}`;
+      const dEl=document.getElementById('pDate'); if(dEl) dEl.dataset.val=p.date;
+      const sEl=document.getElementById('pDateVal'); if(sEl){sEl.textContent=p.date;sEl.classList.remove('placeholder');}
+    }
+  },60);
+}
+
+async function deleteBill(id,fromLedger=false){
+  const payments=await dbGetAll(PAYMENTS);
+  const linked=payments.filter(p=>p.billId===id);
+  let msg='Is bill ko delete karein?';
+  if(linked.length) msg+=`\n\n⚠ ${linked.length} linked payment(s) bhi delete hongi.`;
+  if(!confirm(msg))return;
+  if(linked.length) await Promise.all(linked.map(p=>dbDel(PAYMENTS,p.id)));
+  await dbDel(BILLS,id);
+  showToast('Bill deleted','info');
+  updateBadge();
+  if(fromLedger)loadLedger();else loadReport();
   loadDashboard();
 }
 
-// ===========================
-// EDIT / DELETE PAYMENT
-// ===========================
-async function editPayment(id) {
-  const payments = await dbGetAll(PAYMENTS);
-  const p = payments.find(p => p.id === id);
-  if (!p) return;
-  navigate('add-vendor');
-  setTimeout(async () => {
-    switchTab('pay');
-    await populatePayVendor();
-    document.getElementById('formTitle').textContent = 'Edit Payment';
-    document.getElementById('editId').value = id;
-    document.getElementById('editMode').value = 'payment';
-    document.getElementById('pVendor').value = p.vendorName;
-    await loadVendorBillsForPay();
-    if (p.billId) document.getElementById('pBillRef').value = p.billId;
-    document.getElementById('pDate').value = p.date;
-    // Sync native picker
-    if (p.date && validateDate(p.date)) {
-      const [dd,mm,yy] = p.date.split('/');
-      document.getElementById('pDateNative').value = `20${yy}-${mm}-${dd}`;
-    }
-    document.getElementById('pAmount').value = p.amount;
-    document.getElementById('pPayment').value = p.payment;
-    document.getElementById('pRef').value = p.refNo||'';
-    document.getElementById('pNote').value = p.note||'';
-  }, 60);
+function deletePayment(id,fromLedger=false){
+  if(!confirm('Payment delete karein?'))return;
+  dbDel(PAYMENTS,id).then(()=>{ showToast('Payment deleted','info'); updateBadge(); if(fromLedger)loadLedger();else loadReport(); loadDashboard(); });
 }
 
-function deletePayment(id, fromLedger=false) {
-  if (!confirm('Payment delete karein?')) return;
-  dbDelete(PAYMENTS, id).then(() => {
-    showToast('Payment deleted', 'info');
-    updateMobileBadge();
-    if (fromLedger) loadLedger(); else loadReport();
-    loadDashboard();
-  });
+// ─── DOWNLOAD ─────────────────────────────────
+async function downloadReport(){
+  const [bills,payments]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
+  const today=getTodayDDMMYY();
+  const rows=[...bills.map(b=>`<tr><td>📋 Bill</td><td>${b.vendorName}</td><td>${b.billNo}</td><td>${b.date}</td><td style="color:#DC2626;font-weight:700">PKR ${b.amount.toLocaleString('en-PK')}</td><td>—</td><td>—</td><td>${b.description||'—'}</td></tr>`),
+              ...payments.map(p=>`<tr style="background:#F0FDF4"><td>✅ Pay</td><td>${p.vendorName}</td><td>${p.refNo||'—'}</td><td>${p.date}</td><td>—</td><td style="color:#059669;font-weight:700">PKR ${p.amount.toLocaleString('en-PK')}</td><td>${p.payment}</td><td>${p.note||'—'}</td></tr>`)].join('');
+  const table=`<table><thead><tr><th>Type</th><th>Vendor</th><th>Bill/Ref</th><th>Date</th><th>Debit</th><th>Credit</th><th>Method</th><th>Note</th></tr></thead><tbody>${rows}</tbody></table>`;
+  triggerDL(buildHTML('All Vendor Report',today,table),`VendorPro_Report_${today.replace(/\//g,'')}.html`);
 }
 
-// ===========================
-// DOWNLOAD
-// ===========================
-async function downloadReport() {
-  const [bills, payments] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
-  const today = getTodayDDMMYY();
-  const allRows = [
-    ...bills.map(b => `<tr><td>📋 Bill</td><td>${b.vendorName}</td><td>${b.billNo}</td>
-      <td>${b.date}</td><td style="color:#DC2626;font-weight:700">PKR ${b.amount.toLocaleString('en-PK')}</td>
-      <td>—</td><td>—</td><td>${b.description||'—'}</td></tr>`),
-    ...payments.map(p => `<tr style="background:#F0FDF4"><td>✅ Payment</td><td>${p.vendorName}</td>
-      <td>${p.refNo||'—'}</td><td>${p.date}</td><td>—</td>
-      <td style="color:#059669;font-weight:700">PKR ${p.amount.toLocaleString('en-PK')}</td>
-      <td>${p.payment}</td><td>${p.note||'—'}</td></tr>`)
-  ].join('');
-
-  const table = `<table><thead><tr><th>Type</th><th>Vendor</th><th>Bill/Ref</th><th>Date</th>
-    <th>Debit</th><th>Credit</th><th>Payment</th><th>Note</th></tr></thead><tbody>${allRows}</tbody></table>`;
-  triggerDownload(buildDownloadHTML('All Vendor Report', today, table), `VendorPro_Report_${today.replace(/\//g,'')}.html`);
-}
-
-async function downloadLedger() {
-  const vendor = document.getElementById('ledgerVendor').value;
-  if (!vendor) { showToast('Pehle vendor select karein', 'error'); return; }
-  const [bills, allPayments] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
-  const vBills    = bills.filter(b => b.vendorName === vendor).sort((a,b) => dateSort(a.date,b.date));
-  const vPayments = allPayments.filter(p => p.vendorName === vendor).sort((a,b) => dateSort(a.date,b.date));
-  const rows = [];
-  vBills.forEach(b => rows.push({ ...b, _type:'bill', _key: dateSortKey(b.date)+(b.createdAt||0) }));
-  vPayments.forEach(p => rows.push({ ...p, _type:'payment', _key: dateSortKey(p.date)+(p.createdAt||0) }));
-  rows.sort((a,b) => String(a._key).localeCompare(String(b._key)));
-  let balance=0;
-  const tRows = rows.map(r => {
-    const d = r._type==='bill' ? r.amount : 0;
-    const c = r._type==='payment' ? r.amount : 0;
-    balance += c - d;
-    return `<tr style="${r._type==='payment'?'background:#F0FDF4':''}">
-      <td>${r.date}</td><td>${r._type==='bill'?r.billNo:(r.refNo||'—')}</td>
-      <td>${r._type==='bill'?(r.description||'—'):(r.note||'—')}</td>
-      <td>${r._type==='payment'?r.payment:'—'}</td>
-      <td style="color:#DC2626;font-weight:700">${d>0?'PKR '+d.toLocaleString('en-PK'):'—'}</td>
-      <td style="color:#059669;font-weight:700">${c>0?'PKR '+c.toLocaleString('en-PK'):'—'}</td>
-      <td style="color:${balance<0?'#DC2626':'#4B5BDA'};font-weight:700">PKR ${Math.abs(balance).toLocaleString('en-PK')} ${balance<0?'(Dr)':'(Cr)'}</td>
-    </tr>`;
+async function downloadLedger(){
+  const vendor=document.getElementById('ledgerVendor').value;
+  if(!vendor){showToast('Vendor select karein','error');return;}
+  const [bills,allPay]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]);
+  const vb=bills.filter(b=>b.vendorName===vendor).sort((a,b)=>dsk(a.date).localeCompare(dsk(b.date)));
+  const vp=allPay.filter(p=>p.vendorName===vendor).sort((a,b)=>dsk(a.date).localeCompare(dsk(b.date)));
+  const rows=[...vb.map(b=>({...b,_type:'bill',_sk:dsk(b.date)+(b.createdAt||0)})),...vp.map(p=>({...p,_type:'payment',_sk:dsk(p.date)+(p.createdAt||0)}))];
+  rows.sort((a,b)=>String(a._sk).localeCompare(String(b._sk)));
+  let bal=0;
+  const tRows=rows.map(r=>{
+    const d=r._type==='bill'?r.amount:0; const c=r._type==='payment'?r.amount:0;
+    bal+=c-d;
+    return `<tr style="${r._type==='payment'?'background:#F0FDF4':''}"><td>${r.date}</td><td>${r._type==='bill'?r.billNo:(r.refNo||'—')}</td><td>${r._type==='bill'?(r.description||'—'):(r.note||'—')}</td><td>${r._type==='payment'?r.payment:'—'}</td><td style="color:#DC2626;font-weight:700">${d>0?'PKR '+d.toLocaleString('en-PK'):'—'}</td><td style="color:#059669;font-weight:700">${c>0?'PKR '+c.toLocaleString('en-PK'):'—'}</td><td style="color:${bal<0?'#DC2626':'#4B5BDA'};font-weight:700">PKR ${Math.abs(bal).toLocaleString('en-PK')} ${bal<0?'(Dr)':'(Cr)'}</td></tr>`;
   }).join('');
-  const table = `<table><thead><tr><th>Date</th><th>Bill/Ref</th><th>Description</th>
-    <th>Payment</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>${tRows}</tbody></table>`;
-  const today = getTodayDDMMYY();
-  triggerDownload(buildDownloadHTML(`Ledger — ${vendor}`, today, table),
-    `Ledger_${vendor.replace(/\s/g,'_')}_${today.replace(/\//g,'')}.html`);
+  const table=`<table><thead><tr><th>Date</th><th>Bill/Ref</th><th>Description</th><th>Payment</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>${tRows}</tbody></table>`;
+  const today=getTodayDDMMYY();
+  triggerDL(buildHTML(`Ledger — ${vendor}`,today,table),`Ledger_${vendor.replace(/\s/g,'_')}_${today.replace(/\//g,'')}.html`);
 }
 
-function buildDownloadHTML(title, date, tableHTML) {
+function buildHTML(title,date,table){
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
-<style>body{font-family:'Segoe UI',sans-serif;padding:30px;color:#1A1B3A}
-h1{font-size:22px;font-weight:800;color:#4B5BDA;margin-bottom:4px}.meta{font-size:12px;color:#888;margin-bottom:24px}
-table{width:100%;border-collapse:collapse;font-size:13px}thead{background:#4B5BDA;color:#fff}
-th{padding:10px 12px;text-align:left;font-weight:600}td{padding:9px 12px;border-bottom:1px solid #E2E4F0}
-tr:nth-child(even){background:#F4F5FF}.footer{margin-top:28px;font-size:11px;color:#aaa;text-align:center}
-</style></head><body>
-<h1>VendorPro — ${title}</h1>
-<div class="meta">Generated: ${date} | VendorPro Management Suite</div>
-${tableHTML}
+<style>body{font-family:'Segoe UI',sans-serif;padding:28px;color:#1A1B3A}h1{font-size:20px;font-weight:800;color:#4B5BDA;margin-bottom:4px}.meta{font-size:11px;color:#888;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:12px}thead{background:#1E1F3A;color:#fff}th{padding:9px 10px;text-align:left;font-weight:600}td{padding:8px 10px;border-bottom:1px solid #E2E4F0}tr:nth-child(even){background:#F4F5FF}.footer{margin-top:24px;font-size:10px;color:#aaa;text-align:center}</style></head>
+<body><h1>VendorPro — ${title}</h1><div class="meta">Generated: ${date} | VendorPro Management Suite</div>${table}
 <div class="footer">© VendorPro Management Suite</div></body></html>`;
 }
 
-function triggerDownload(html, filename) {
-  const blob = new Blob([html], { type:'text/html;charset=utf-8' });
-  if (window.showSaveFilePicker) {
-    window.showSaveFilePicker({ suggestedName: filename,
-      types:[{ description:'HTML', accept:{'text/html':['.html']} }]
-    }).then(async fh => {
-      const w = await fh.createWritable(); await w.write(blob); await w.close();
-      showToast('File saved!', 'success');
-    }).catch(() => fallbackDownload(blob, filename));
-  } else { fallbackDownload(blob, filename); }
+function triggerDL(html,filename){
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  if(window.showSaveFilePicker){
+    window.showSaveFilePicker({suggestedName:filename,types:[{description:'HTML',accept:{'text/html':['.html']}}]})
+      .then(async fh=>{const w=await fh.createWritable();await w.write(blob);await w.close();showToast('File saved!','success');})
+      .catch(()=>fallbackDL(blob,filename));
+  }else fallbackDL(blob,filename);
 }
-function fallbackDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url); showToast('Downloaded!', 'success');
+function fallbackDL(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);showToast('Downloaded!','success');
 }
 
-// ===========================
-// UTILITIES
-// ===========================
-function formatPKR(n) {
-  if (n >= 100000) return (n/100000).toFixed(1)+'L';
-  if (n >= 1000)   return (n/1000).toFixed(1)+'K';
-  return n.toLocaleString('en-PK');
-}
-function payClass(p) {
-  return { Cash:'pay-cash', Online:'pay-online', EasyPaisa:'pay-easypaisa', JazzCash:'pay-jazzcash' }[p]||'';
-}
-function paymentIcon(p) {
-  return { Cash:'💵', Online:'🌐', EasyPaisa:'📱', JazzCash:'📲' }[p]||'💳';
-}
-function dateSort(a,b) {
-  return dateSortKey(a).localeCompare(dateSortKey(b));
-}
-function dateSort2(a,b) { return dateSortKey(b).localeCompare(dateSortKey(a)); }
-function dateSortKey(d) {
-  if (!d) return '000000';
-  const [dd,mm,yy] = d.split('/');
-  return `${yy||'00'}${mm||'00'}${dd||'00'}`;
-}
-function showToast(msg, type='') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = `toast ${type} show`;
-  setTimeout(() => t.classList.remove('show'), 3000);
-}
-async function updateMobileBadge() {
-  const [b,p] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
-  document.getElementById('mobileBadge').textContent = b.length + p.length;
-}
-function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+// ─── UTILS ────────────────────────────────────
+function formatPKR(n){ if(n>=100000)return(n/100000).toFixed(1)+'L'; if(n>=1000)return(n/1000).toFixed(1)+'K'; return n.toLocaleString('en-PK'); }
+function payClass(p){ return {Cash:'pb-cash',Online:'pb-online',EasyPaisa:'pb-easypaisa',JazzCash:'pb-jazzcash'}[p]||''; }
+function payIcon(p){ return {Cash:'💵',Online:'🌐',EasyPaisa:'📱',JazzCash:'📲'}[p]||'💳'; }
+function dsk(d){ if(!d)return'000000'; const [dd,mm,yy]=d.split('/'); return `${yy||'00'}${mm||'00'}${dd||'00'}`; }
+function showToast(msg,type=''){ const t=document.getElementById('toast'); t.textContent=msg; t.className=`toast ${type} show`; setTimeout(()=>t.classList.remove('show'),3000); }
+async function updateBadge(){ const [b,p]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]); document.getElementById('mobileBadge').textContent=b.length+p.length; }
 
-// ===========================
-// INIT
-// ===========================
-initDB().then(() => {
+// ─── INIT ─────────────────────────────────────
+initDB().then(()=>{
   loadDashboard();
-  updateMobileBadge();
-  document.getElementById('dbStatus').innerHTML = '<span class="status-dot"></span> Database Ready';
-}).catch(err => {
-  console.error(err);
-  document.getElementById('dbStatus').innerHTML = '⚠ DB Error';
-});
+  updateBadge();
+  document.getElementById('dbStatus').textContent='Database Ready';
+}).catch(e=>{ console.error(e); document.getElementById('dbStatus').textContent='⚠ DB Error'; });
