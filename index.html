@@ -168,6 +168,7 @@
       <div class="stat-card stat-yellow"><div class="stat-icon">&#x1F4B0;</div><div class="stat-info"><div class="stat-num" id="statAmount">0</div><div class="stat-label">Total Payable</div></div></div>
       <div class="stat-card stat-purple"><div class="stat-icon">&#x2705;</div><div class="stat-info"><div class="stat-num" id="statPaid">0</div><div class="stat-label">Total Paid</div></div></div>
     </div>
+    <div id="vendorCards" style="margin-bottom:16px;"></div>
     <div class="dashboard-bottom">
       <div class="recent-card">
         <div class="card-header-row"><h3>Recent Transactions</h3><button class="btn-link" onclick="navigate('report')">View All &rarr;</button></div>
@@ -210,7 +211,7 @@
             <label>Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
             <div class="date-picker-wrap">
               <input type="date" id="fDateNative" class="form-input date-native" onchange="syncDate('fDateNative','fDate')">
-              <input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" readonly>
+              <input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" readonly><span class="date-val-display placeholder" id="fDateVal">Tap to select</span>
               <span class="date-cal-icon">&#x1F4C5;</span>
             </div>
           </div>
@@ -247,7 +248,7 @@
             <label>Payment Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
             <div class="date-picker-wrap">
               <input type="date" id="pDateNative" class="form-input date-native" onchange="syncDate('pDateNative','pDate')">
-              <input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" readonly>
+              <input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" readonly><span class="date-val-display placeholder" id="pDateVal">Tap to select</span>
               <span class="date-cal-icon">&#x1F4C5;</span>
             </div>
           </div>
@@ -290,7 +291,7 @@
         <option value="">Bills + Payments</option><option value="bill">Bills Only</option><option value="payment">Payments Only</option>
       </select>
     </div>
-    <div id="reportTable"><div class="empty-state">No entries found.</div></div>
+    <div id="reportList"><div class="empty-state">No entries found.</div></div>
   </section>
 
   <!-- LEDGER PAGE -->
