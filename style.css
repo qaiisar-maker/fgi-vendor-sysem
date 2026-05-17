@@ -672,3 +672,75 @@ body { font-family:var(--font); background:var(--bg); color:var(--text); min-hei
   .kh2-tv-paid, .kh2-tv-billed, .kh2-tv-bal { font-size: 11px; }
   .pd-item { min-width: 90px; }
 }
+
+/* ============================================
+   VendorPro v2 — Stats Grid + Extra Fixes
+   ============================================ */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+.stat-card.stat-blue { border-left: 4px solid #6B7BF7; }
+.stat-card.stat-green { border-left: 4px solid #C6F135; }
+.stat-card.stat-yellow { border-left: 4px solid #F59E0B; }
+.stat-card.stat-purple { border-left: 4px solid #8B5CF6; }
+.stat-icon { font-size: 28px; }
+.stat-info { flex: 1; }
+.stat-num { font-size: 20px; font-weight: 800; color: #1E1F3A; font-family: var(--mono); }
+.stat-label { font-size: 11px; color: #666; font-weight: 500; margin-top: 2px; }
+
+/* Settings page */
+.settings-section {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+.settings-section h3 {
+  font-size: 13px; font-weight: 700; color: #1E1F3A;
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 2px solid #F0F0FF;
+}
+.s-item {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 11px 0; border-bottom: 1px solid #F0F0FF;
+}
+.s-item:last-child { border-bottom: none; }
+.s-title { font-size: 13px; font-weight: 700; color: #1E1F3A; }
+.s-desc { font-size: 11px; color: #888; margin-top: 2px; }
+.s-btn {
+  padding: 7px 14px; border: none; border-radius: 8px;
+  font-family: var(--body); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.sq-form { margin-top: 12px; padding-top: 10px; border-top: 1px solid #F0F0FF; display: none; }
+.sq-form label { display: block; font-size: 11px; font-weight: 600; color: #666; margin-bottom: 4px; text-transform: uppercase; }
+.sq-form select, .sq-form input { width: 100%; padding: 10px 12px; border: 2px solid #E0E0F0; border-radius: 9px; font-family: var(--body); font-size: 13px; margin-bottom: 8px; outline: none; }
+.sq-form-btns { display: flex; gap: 8px; }
+.sq-form-btns button { flex: 1; padding: 10px; border: none; border-radius: 9px; font-family: var(--body); font-size: 13px; font-weight: 700; cursor: pointer; }
+
+/* Offline bar */
+#offline-bar {
+  display: none; position: fixed; top: 0; left: 0; right: 0;
+  z-index: 9999; background: #c0392b; color: #fff;
+  text-align: center; padding: 5px; font-size: 11px; font-weight: 700;
+}
+
+/* Vendor cards empty state */
+.empty-card {
+  text-align: center; padding: 30px;
+  color: #999; font-size: 13px;
+  background: #F8F9FF; border-radius: 12px;
+}
