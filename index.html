@@ -13,8 +13,107 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+/* ===== PIN LOCK ===== */
+#lock-screen{position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#1E1F3A 0%,#2D2F5E 40%,#3D3F7A 70%,#6B7BF7 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:10px;overflow-y:auto}
+#lock-screen.hidden{display:none}
+.lock-logo{width:56px;height:56px;margin-bottom:4px}
+.lock-title{color:#fff;font-size:22px;font-weight:800;text-align:center;font-family:Outfit,sans-serif}
+.lock-sub{color:rgba(255,255,255,0.6);font-size:12px;text-align:center}
+.pin-dots{display:flex;gap:12px;margin:8px 0}
+.pin-dot{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,0.5);background:transparent;transition:background .2s}
+.pin-dot.filled{background:#C6F135}
+.pin-mode-lbl{color:rgba(255,255,255,0.7);font-size:11px;letter-spacing:2px;text-align:center;min-height:16px;font-family:Outfit,sans-serif}
+.pin-grid{display:grid;grid-template-columns:repeat(3,68px);gap:10px}
+.pin-btn{width:68px;height:68px;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);border-radius:14px;color:white;font-family:Outfit,sans-serif;font-size:22px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.pin-btn:active{background:#C6F135;color:#1E1F3A;transform:scale(0.93)}
+.pin-error{color:#C6F135;font-size:12px;min-height:16px;text-align:center}
+.pin-link{color:rgba(255,255,255,0.7);font-size:11px;text-decoration:underline;cursor:pointer;font-family:Outfit,sans-serif}
+.pin-link2{color:rgba(255,255,255,0.45);font-size:10px;cursor:pointer;text-decoration:underline}
+#forgot-pin-section{display:none;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:14px;padding:14px;width:100%;max-width:290px;text-align:center}
+.fp-q-box{background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;color:#C6F135;font-size:12px;font-weight:600;margin-bottom:8px;line-height:1.5}
+#forgot-pin-section input{width:100%;padding:10px 12px;border:1.5px solid rgba(255,255,255,0.3);border-radius:9px;font-family:Outfit,sans-serif;font-size:13px;color:#1E1F3A;background:rgba(255,255,255,0.9);margin-bottom:7px}
+.fp-verify-btn{background:#C6F135;color:#1E1F3A;border:none;border-radius:9px;padding:11px;width:100%;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+.fp-back{color:rgba(255,255,255,0.5);font-size:11px;cursor:pointer;margin-top:7px;display:block;text-decoration:underline}
+
+/* ===== FOLDER PICKER ===== */
+#folder-picker-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9990;display:none;align-items:center;justify-content:center;padding:20px}
+#folder-picker-modal.open{display:flex}
+#fp-box{background:#fff;border-radius:18px;padding:22px;width:100%;max-width:310px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
+.fp-modal-title{color:#1E1F3A;font-size:16px;font-weight:700;margin-bottom:4px;font-family:Outfit,sans-serif}
+.fp-modal-sub{font-size:11px;color:#666;margin-bottom:14px}
+.fp-modal-btn{width:100%;padding:13px;border:none;border-radius:9px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:7px}
+.fp-modal-cancel{width:100%;padding:9px;border:1.5px solid #ddd;border-radius:9px;font-family:Outfit,sans-serif;font-size:12px;cursor:pointer;background:none;color:#666}
+
+/* ===== OFFLINE BAR ===== */
+#offline-bar{display:none;position:fixed;top:0;left:0;right:0;z-index:300;background:#c0392b;color:#fff;text-align:center;padding:5px;font-size:11px;font-weight:700;font-family:Outfit,sans-serif}
+
+/* ===== SETTINGS PAGE ===== */
+.settings-section{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.settings-section h3{font-size:13px;font-weight:700;color:#1E1F3A;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #F0F0FF}
+.s-item{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #F0F0FF}
+.s-item:last-child{border-bottom:none}
+.s-title{font-size:13px;font-weight:700;color:#1E1F3A}
+.s-desc{font-size:11px;color:#888;margin-top:2px}
+.s-btn{padding:7px 14px;border:none;border-radius:8px;font-family:Outfit,sans-serif;font-size:12px;font-weight:700;cursor:pointer}
+.sq-form{margin-top:12px;padding-top:10px;border-top:1px solid #F0F0FF;display:none}
+.sq-form label{display:block;font-size:11px;font-weight:600;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+.sq-form select,.sq-form input{width:100%;padding:10px 12px;border:2px solid #E0E0F0;border-radius:9px;font-family:Outfit,sans-serif;font-size:13px;margin-bottom:8px;outline:none}
+.sq-form-btns{display:flex;gap:8px}
+.sq-form-btns button{flex:1;padding:10px;border:none;border-radius:9px;font-family:Outfit,sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+</style>
 </head>
 <body>
+
+<!-- PIN LOCK -->
+<div id="lock-screen">
+  <svg class="lock-logo" viewBox="0 0 56 56" fill="none">
+    <rect width="56" height="56" rx="16" fill="url(#llg)"/>
+    <path d="M14 20h28M14 28h20M14 36h24" stroke="white" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="40" cy="36" r="7" fill="#C6F135" stroke="white" stroke-width="2"/>
+    <defs><linearGradient id="llg" x1="0" y1="0" x2="56" y2="56"><stop stop-color="#6B7BF7"/><stop offset="1" stop-color="#4B5BDA"/></linearGradient></defs>
+  </svg>
+  <div class="lock-title">VendorPro</div>
+  <div class="lock-sub">Vendor Management Suite</div>
+  <div id="pin-entry-ui" style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+    <div class="pin-dots">
+      <div class="pin-dot" id="dot0"></div><div class="pin-dot" id="dot1"></div>
+      <div class="pin-dot" id="dot2"></div><div class="pin-dot" id="dot3"></div>
+    </div>
+    <div class="pin-mode-lbl" id="pin-mode-label">ENTER PIN</div>
+    <div class="pin-grid">
+      <button class="pin-btn" onclick="pinPress('1')">1</button><button class="pin-btn" onclick="pinPress('2')">2</button><button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button><button class="pin-btn" onclick="pinPress('5')">5</button><button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button><button class="pin-btn" onclick="pinPress('8')">8</button><button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn" onclick="pinPress('C')" style="font-size:15px;">&#x2715;</button>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn" onclick="pinPress('DEL')" style="font-size:15px;">&#x232B;</button>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+    <div class="pin-link" onclick="startChangePin()">&#x1F511; PIN Change Karein</div>
+    <div class="pin-link2" onclick="showForgotPin()">&#x1F513; PIN Bhool Gaye?</div>
+  </div>
+  <div id="forgot-pin-section">
+    <div class="fp-q-box" id="fp-question-display">Loading...</div>
+    <input type="text" id="fp-answer" placeholder="Jawab likhein..." autocomplete="off">
+    <button class="fp-verify-btn" onclick="verifyForgotPin()">&#x2705; Verify Karein</button>
+    <div id="fp-error" style="color:#C6F135;font-size:11px;min-height:14px;margin-top:5px;"></div>
+    <span class="fp-back" onclick="hideForgotPin()">&larr; Wapas PIN Screen</span>
+  </div>
+</div>
+
+<!-- FOLDER PICKER -->
+<div id="folder-picker-modal">
+  <div id="fp-box">
+    <div class="fp-modal-title" id="fp-modal-title">&#x1F4C1; Kahan Save Karein?</div>
+    <div class="fp-modal-sub" id="fp-modal-sub">File save karne ki jagah chunein</div>
+    <button class="fp-modal-btn" style="background:#4B5BDA;color:white;" onclick="folderPickerAction('download')">&#x1F4E5; Downloads Folder</button>
+    <button class="fp-modal-btn" style="background:#059669;color:white;" onclick="folderPickerAction('share')">&#x1F4E4; Share / WhatsApp</button>
+    <button class="fp-modal-cancel" onclick="closeFolderPicker()">Baad mein</button>
+  </div>
+</div>
+
+<div id="offline-bar">&#x1F4F5; Offline Mode — Data safe hai (IndexedDB)</div>
 
 <nav class="sidebar" id="sidebar">
   <div class="sidebar-logo">
@@ -33,20 +132,25 @@
   </div>
   <div class="nav-section-label">MENU</div>
   <ul class="nav-links">
-    <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="nav-icon">⊞</span><span>Dashboard</span></a></li>
-    <li><a href="#" class="nav-item" data-page="add-vendor" onclick="navigate('add-vendor')"><span class="nav-icon">＋</span><span>Add Bill / Payment</span></a></li>
-    <li><a href="#" class="nav-item" data-page="report" onclick="navigate('report')"><span class="nav-icon">⊟</span><span>All Reports</span></a></li>
-    <li><a href="#" class="nav-item" data-page="ledger" onclick="navigate('ledger')"><span class="nav-icon">◈</span><span>Ledger Book</span></a></li>
+    <li><a href="#" class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')"><span class="nav-icon">&#x229E;</span><span>Dashboard</span></a></li>
+    <li><a href="#" class="nav-item" data-page="add-vendor" onclick="navigate('add-vendor')"><span class="nav-icon">&#xFF0B;</span><span>Add Bill / Payment</span></a></li>
+    <li><a href="#" class="nav-item" data-page="report" onclick="navigate('report')"><span class="nav-icon">&#x229F;</span><span>All Reports</span></a></li>
+    <li><a href="#" class="nav-item" data-page="ledger" onclick="navigate('ledger')"><span class="nav-icon">&#x25C8;</span><span>Ledger Book</span></a></li>
+    <li><a href="#" class="nav-item" data-page="settings" onclick="navigate('settings')"><span class="nav-icon">&#x2699;</span><span>Settings</span></a></li>
   </ul>
   <div class="sidebar-footer">
     <div class="db-status" id="dbStatus"><span class="status-dot"></span> Database Ready</div>
+    <div style="margin-top:8px;"><button onclick="lockApp()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.7);padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer;font-family:Outfit,sans-serif;">&#x1F512; Lock</button></div>
   </div>
 </nav>
 
 <header class="mobile-header">
-  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+  <button class="hamburger" onclick="toggleSidebar()">&#x2630;</button>
   <div class="mobile-title">VendorPro</div>
-  <div class="mobile-badge" id="mobileBadge">0</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="mobile-badge" id="mobileBadge">0</div>
+    <button onclick="lockApp()" style="background:none;border:none;font-size:18px;cursor:pointer;">&#x1F512;</button>
+  </div>
 </header>
 <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 
@@ -55,18 +159,18 @@
   <!-- DASHBOARD -->
   <section class="page active" id="page-dashboard">
     <div class="page-header">
-      <div><h1 class="page-title">Dashboard</h1><p class="page-sub">Vendor Overview & Summary</p></div>
+      <div><h1 class="page-title">Dashboard</h1><p class="page-sub">Vendor Overview &amp; Summary</p></div>
       <button class="btn-primary" onclick="navigate('add-vendor')">+ Add Bill</button>
     </div>
     <div class="stats-grid">
-      <div class="stat-card stat-blue"><div class="stat-icon">👥</div><div class="stat-info"><div class="stat-num" id="statVendors">0</div><div class="stat-label">Total Vendors</div></div></div>
-      <div class="stat-card stat-green"><div class="stat-icon">📋</div><div class="stat-info"><div class="stat-num" id="statEntries">0</div><div class="stat-label">Total Bills</div></div></div>
-      <div class="stat-card stat-yellow"><div class="stat-icon">💰</div><div class="stat-info"><div class="stat-num" id="statAmount">0</div><div class="stat-label">Total Payable</div></div></div>
-      <div class="stat-card stat-purple"><div class="stat-icon">✅</div><div class="stat-info"><div class="stat-num" id="statPaid">0</div><div class="stat-label">Total Paid</div></div></div>
+      <div class="stat-card stat-blue"><div class="stat-icon">&#x1F465;</div><div class="stat-info"><div class="stat-num" id="statVendors">0</div><div class="stat-label">Total Vendors</div></div></div>
+      <div class="stat-card stat-green"><div class="stat-icon">&#x1F4CB;</div><div class="stat-info"><div class="stat-num" id="statEntries">0</div><div class="stat-label">Total Bills</div></div></div>
+      <div class="stat-card stat-yellow"><div class="stat-icon">&#x1F4B0;</div><div class="stat-info"><div class="stat-num" id="statAmount">0</div><div class="stat-label">Total Payable</div></div></div>
+      <div class="stat-card stat-purple"><div class="stat-icon">&#x2705;</div><div class="stat-info"><div class="stat-num" id="statPaid">0</div><div class="stat-label">Total Paid</div></div></div>
     </div>
     <div class="dashboard-bottom">
       <div class="recent-card">
-        <div class="card-header-row"><h3>Recent Transactions</h3><button class="btn-link" onclick="navigate('report')">View All →</button></div>
+        <div class="card-header-row"><h3>Recent Transactions</h3><button class="btn-link" onclick="navigate('report')">View All &rarr;</button></div>
         <div class="recent-list" id="recentList"><div class="empty-state">No entries yet.</div></div>
       </div>
       <div class="payment-card">
@@ -84,17 +188,13 @@
     <div class="page-header">
       <div><h1 class="page-title" id="formTitle">Add Bill / Payment</h1><p class="page-sub">Bill ya payment darj karein</p></div>
     </div>
-
     <div class="form-container">
       <input type="hidden" id="editId">
-      <input type="hidden" id="editMode"> <!-- 'bill' or 'payment' -->
-
+      <input type="hidden" id="editMode">
       <div class="form-tabs">
-        <button class="tab-btn active" id="tabBillBtn" onclick="switchTab('bill')">📋 Bill Entry</button>
-        <button class="tab-btn" id="tabPayBtn" onclick="switchTab('pay')">💳 Payment Entry</button>
+        <button class="tab-btn active" id="tabBillBtn" onclick="switchTab('bill')">&#x1F4CB; Bill Entry</button>
+        <button class="tab-btn" id="tabPayBtn" onclick="switchTab('pay')">&#x1F4B3; Payment Entry</button>
       </div>
-
-      <!-- BILL ENTRY -->
       <div id="tabBill">
         <div class="form-grid">
           <div class="form-group full-width">
@@ -110,77 +210,63 @@
             <label>Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
             <div class="date-picker-wrap">
               <input type="date" id="fDateNative" class="form-input date-native" onchange="syncDate('fDateNative','fDate')">
-              <input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" oninput="formatDate(this,'fDateNative')" readonly>
-              <span class="date-cal-icon">📅</span>
+              <input type="text" id="fDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" readonly>
+              <span class="date-cal-icon">&#x1F4C5;</span>
             </div>
           </div>
           <div class="form-group"><label>Bill No <span class="req">*</span></label><input type="text" id="fBillNo" placeholder="INV-001" class="form-input"></div>
           <div class="form-group"><label>Bill Amount (PKR) <span class="req">*</span></label><input type="number" id="fAmount" placeholder="0.00" class="form-input" min="0"></div>
-          <div class="form-group full-width"><label>Description <span class="opt">(optional)</span></label><textarea id="fDescription" placeholder="Goods received, services rendered..." class="form-input form-textarea" rows="3"></textarea></div>
+          <div class="form-group full-width"><label>Description <span class="opt">(optional)</span></label><textarea id="fDescription" placeholder="Goods received..." class="form-input form-textarea" rows="3"></textarea></div>
         </div>
         <div class="form-actions">
-          <button class="btn-secondary" onclick="clearBillForm()">✕ Clear</button>
-          <button class="btn-primary" onclick="saveBill()">💾 Save Bill</button>
+          <button class="btn-secondary" onclick="clearBillForm()">&#x2715; Clear</button>
+          <button class="btn-primary" onclick="saveBill()">&#x1F4BE; Save Bill</button>
         </div>
       </div>
-
-      <!-- PAYMENT ENTRY -->
       <div id="tabPay" style="display:none">
-
         <div class="form-grid">
           <div class="form-group full-width">
             <label>Vendor Select <span class="req">*</span></label>
-            <select id="pVendor" class="form-input" onchange="loadVendorBillsForPay()">
-              <option value="">— Vendor chunein —</option>
-            </select>
+            <select id="pVendor" class="form-input" onchange="loadVendorBillsForPay()"><option value="">&#x2014; Vendor chunein &#x2014;</option></select>
           </div>
-
-          <!-- Outstanding summary box -->
           <div class="form-group full-width" id="outstandingWrap" style="display:none">
             <div class="outstanding-box">
-              <div class="out-item"><span class="out-label">📋 Total Bills</span><span class="out-num out-debit" id="outTotalBill">PKR 0</span></div>
-              <div class="out-item"><span class="out-label">✅ Total Paid</span><span class="out-num out-credit" id="outTotalPaid">PKR 0</span></div>
-              <div class="out-item highlight"><span class="out-label">⚡ Outstanding</span><span class="out-num out-bal" id="outBalance">PKR 0</span></div>
+              <div class="out-item"><span class="out-label">&#x1F4CB; Total Bills</span><span class="out-num out-debit" id="outTotalBill">PKR 0</span></div>
+              <div class="out-item"><span class="out-label">&#x2705; Total Paid</span><span class="out-num out-credit" id="outTotalPaid">PKR 0</span></div>
+              <div class="out-item highlight"><span class="out-label">&#x26A1; Outstanding</span><span class="out-num out-bal" id="outBalance">PKR 0</span></div>
             </div>
           </div>
-
           <div class="form-group full-width">
-            <label>Bill Reference <span class="opt">(optional — specific bill ke against)</span></label>
-            <select id="pBillRef" class="form-input" onchange="billSelected()">
-              <option value="">— General Payment (kisi bill ke against nahi) —</option>
-            </select>
+            <label>Bill Reference <span class="opt">(optional)</span></label>
+            <select id="pBillRef" class="form-input" onchange="billSelected()"><option value="">&#x2014; General Payment &#x2014;</option></select>
           </div>
-
-          <!-- Bill detail preview -->
           <div class="form-group full-width" id="billPreviewWrap" style="display:none">
             <div class="bill-preview" id="billPreview"></div>
           </div>
-
           <div class="form-group">
             <label>Payment Date <span class="req">*</span> <span class="format-hint">dd/mm/yy</span></label>
             <div class="date-picker-wrap">
               <input type="date" id="pDateNative" class="form-input date-native" onchange="syncDate('pDateNative','pDate')">
-              <input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" oninput="formatDate(this,'pDateNative')" readonly>
-              <span class="date-cal-icon">📅</span>
+              <input type="text" id="pDate" placeholder="25/12/25" maxlength="8" class="form-input date-text" readonly>
+              <span class="date-cal-icon">&#x1F4C5;</span>
             </div>
           </div>
           <div class="form-group"><label>Amount Paid (PKR) <span class="req">*</span></label><input type="number" id="pAmount" placeholder="0.00" class="form-input" min="0" oninput="checkPayAmount()"></div>
           <div class="form-group"><label>Payment Method <span class="req">*</span></label>
             <select id="pPayment" class="form-input">
-              <option value="">— Select —</option>
-              <option value="Cash">💵 Cash</option>
-              <option value="Online">🌐 Online</option>
-              <option value="EasyPaisa">📱 EasyPaisa</option>
-              <option value="JazzCash">📲 JazzCash</option>
+              <option value="">&#x2014; Select &#x2014;</option>
+              <option value="Cash">&#x1F4B5; Cash</option>
+              <option value="Online">&#x1F310; Online</option>
+              <option value="EasyPaisa">&#x1F4F1; EasyPaisa</option>
+              <option value="JazzCash">&#x1F4F2; JazzCash</option>
             </select>
           </div>
           <div class="form-group"><label>Receipt / Ref No <span class="opt">(optional)</span></label><input type="text" id="pRef" placeholder="TXN-12345..." class="form-input"></div>
           <div class="form-group full-width"><label>Note <span class="opt">(optional)</span></label><textarea id="pNote" placeholder="Payment remarks..." class="form-input form-textarea" rows="2"></textarea></div>
         </div>
-
         <div class="form-actions">
-          <button class="btn-secondary" onclick="clearPayForm()">✕ Clear</button>
-          <button class="btn-primary btn-pay" onclick="savePayment()">✅ Save Payment</button>
+          <button class="btn-secondary" onclick="clearPayForm()">&#x2715; Clear</button>
+          <button class="btn-primary btn-pay" onclick="savePayment()">&#x2705; Save Payment</button>
         </div>
       </div>
     </div>
@@ -191,23 +277,17 @@
     <div class="page-header">
       <div><h1 class="page-title">All Reports</h1><p class="page-sub" id="reportCount">Showing all entries</p></div>
       <div class="header-actions">
-        <button class="btn-outline" onclick="downloadReport()">⬇ Download</button>
+        <button class="btn-outline" onclick="downloadReport()">&#x2B07; Download</button>
         <button class="btn-primary" onclick="navigate('add-vendor')">+ Add</button>
       </div>
     </div>
     <div class="filter-bar">
-      <input type="text" id="searchInput" placeholder="🔍  Search vendor, bill..." class="search-input" oninput="filterReport()">
+      <input type="text" id="searchInput" placeholder="&#x1F50D; Search vendor, bill..." class="search-input" oninput="filterReport()">
       <select id="filterPayment" class="filter-select" onchange="filterReport()">
-        <option value="">All Methods</option>
-        <option value="Cash">Cash</option>
-        <option value="Online">Online</option>
-        <option value="EasyPaisa">EasyPaisa</option>
-        <option value="JazzCash">JazzCash</option>
+        <option value="">All Methods</option><option value="Cash">Cash</option><option value="Online">Online</option><option value="EasyPaisa">EasyPaisa</option><option value="JazzCash">JazzCash</option>
       </select>
       <select id="filterType" class="filter-select" onchange="filterReport()">
-        <option value="">Bills + Payments</option>
-        <option value="bill">Bills Only</option>
-        <option value="payment">Payments Only</option>
+        <option value="">Bills + Payments</option><option value="bill">Bills Only</option><option value="payment">Payments Only</option>
       </select>
     </div>
     <div id="reportTable"><div class="empty-state">No entries found.</div></div>
@@ -216,43 +296,86 @@
   <!-- LEDGER PAGE -->
   <section class="page" id="page-ledger">
     <div class="page-header">
-      <div><h1 class="page-title">Ledger Book</h1><p class="page-sub">Vendor-wise Statement — Bills & Payments</p></div>
+      <div><h1 class="page-title">Ledger Book</h1><p class="page-sub">Vendor-wise Statement</p></div>
       <div class="header-actions">
-        <button class="btn-outline" onclick="downloadLedger()">⬇ Download</button>
+        <button class="btn-outline" onclick="downloadLedger()">&#x2B07; Download</button>
       </div>
     </div>
-
     <div class="ledger-vendor-select">
       <label>Vendor</label>
-      <select id="ledgerVendor" class="form-input" onchange="loadLedger()">
-        <option value="">— Vendor chunein —</option>
-      </select>
-      <button class="btn-primary btn-pay" onclick="openPaymentForVendor()" style="white-space:nowrap">💳 Payment</button>
+      <select id="ledgerVendor" class="form-input" onchange="loadLedger()"><option value="">&#x2014; Vendor chunein &#x2014;</option></select>
+      <button class="btn-primary btn-pay" onclick="openPaymentForVendor()" style="white-space:nowrap">&#x1F4B3; Payment</button>
     </div>
-
     <div id="ledgerContent"><div class="empty-state">Vendor select karein.</div></div>
+  </section>
+
+  <!-- SETTINGS PAGE -->
+  <section class="page" id="page-settings">
+    <div class="page-header">
+      <div><h1 class="page-title">Settings</h1><p class="page-sub">PIN, Security & Backup</p></div>
+    </div>
+    <div class="settings-section">
+      <h3>&#x1F510; PIN & Security</h3>
+      <div class="s-item">
+        <div><div class="s-title">PIN Change</div><div class="s-desc">4-digit naya PIN set karein</div></div>
+        <button class="s-btn" style="background:#EEF0FF;color:#4B5BDA;" onclick="startChangePin();document.getElementById('lock-screen').classList.remove('hidden');">&#x270F; Change</button>
+      </div>
+      <div class="s-item">
+        <div><div class="s-title">&#x1F511; Secret Question</div><div class="s-desc" id="sq-status-desc">Abhi set nahi</div></div>
+        <button class="s-btn" style="background:#F0FFF4;color:#059669;" onclick="toggleSQForm()">&#x2699; Set</button>
+      </div>
+      <div class="s-item">
+        <div><div class="s-title">Lock App</div><div class="s-desc">PIN screen pe wapas jao</div></div>
+        <button class="s-btn" style="background:#FFF0F0;color:#DC2626;" onclick="lockApp()">&#x1F512; Lock</button>
+      </div>
+      <div class="sq-form" id="sq-form">
+        <label>Secret Sawaal</label>
+        <select id="sq-select"><option value="">-- Sawaal chunein --</option><option>Aapki ammi ka naam kya hai?</option><option>Aapke school ka naam kya tha?</option><option>Aapka pehla dost kaun tha?</option><option>Aapke ghar ka mohalla kaunsa hai?</option><option>Aapka favorite khana kya hai?</option><option>Aapki pehli bike ya car?</option><option>Aapke abbu ka pehla naam?</option><option>Aapka gaon ya shehar kaunsa hai?</option></select>
+        <label>Jawab</label>
+        <input type="text" id="sq-answer" placeholder="Jawab — yaad rakhein!" maxlength="50">
+        <div class="sq-form-btns">
+          <button style="background:#4B5BDA;color:#fff;" onclick="saveSQ()">&#x1F4BE; Save</button>
+          <button style="background:#F0F0F0;color:#666;" onclick="document.getElementById('sq-form').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>&#x1F4BE; Data Backup</h3>
+      <div class="s-item">
+        <div><div class="s-title">&#x1F4E4; Export Data</div><div class="s-desc">JSON backup — sab data</div></div>
+        <button class="s-btn" style="background:#EEF0FF;color:#4B5BDA;" onclick="exportAllData()">Export</button>
+      </div>
+      <div class="s-item">
+        <div><div class="s-title">&#x1F4E5; Import Data</div><div class="s-desc">Backup restore karein</div></div>
+        <button class="s-btn" style="background:#F0FFF4;color:#059669;" onclick="document.getElementById('importFile').click()">Import</button>
+      </div>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importAllData(event)">
+    </div>
+    <div class="settings-section">
+      <h3>&#x2139; App Info</h3>
+      <div style="font-size:12px;color:#666;line-height:2;">
+        <b style="color:#1E1F3A">VendorPro v2</b><br>
+        &#x2705; IndexedDB — Permanent local storage<br>
+        &#x2705; PIN Lock (IndexedDB)<br>
+        &#x2705; Secret Question Recovery<br>
+        &#x2705; Folder Picker — Save anywhere<br>
+        &#x2705; 100% Offline — No Google Drive<br>
+        FGI — Ali Pur Chattha
+      </div>
+    </div>
   </section>
 
 </main>
 
 <div class="toast" id="toast"></div>
-
-<!-- Edit Modal -->
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
-    <div class="modal-header">
-      <h3 id="modalTitle">Edit</h3>
-      <button class="modal-close" onclick="closeModal()">✕</button>
-    </div>
+    <div class="modal-header"><h3 id="modalTitle">Edit</h3><button class="modal-close" onclick="closeModal()">&#x2715;</button></div>
     <div id="modalBody"></div>
   </div>
 </div>
 
-<script>
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js").catch(()=>{});
-}
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

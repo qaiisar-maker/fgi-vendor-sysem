@@ -1,3 +1,267 @@
+/* VendorPro v2 — app.js — PIN Lock + Secret Q + Folder Picker */
+'use strict';
+
+// ============================================================
+//  IndexedDB — PIN & Secret Q (separate store from app data)
+// ============================================================
+const PIN_IDB = 'VendorProSecurity', PIN_STORE = 'secdata';
+let pinIdb = null;
+
+function openPinIDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(PIN_IDB, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(PIN_STORE);
+    req.onsuccess = e => { pinIdb = e.target.result; res(pinIdb); };
+    req.onerror = () => rej(req.error);
+  });
+}
+const pinSave = (k, v) => new Promise(res => {
+  if (!pinIdb) { res(); return; }
+  const tx = pinIdb.transaction(PIN_STORE, 'readwrite');
+  tx.objectStore(PIN_STORE).put(v, k);
+  tx.oncomplete = () => res(); tx.onerror = () => res();
+});
+const pinLoad = (k) => new Promise(res => {
+  if (!pinIdb) { res(null); return; }
+  const tx = pinIdb.transaction(PIN_STORE, 'readonly');
+  const req = tx.objectStore(PIN_STORE).get(k);
+  req.onsuccess = () => res(req.result !== undefined ? req.result : null);
+  req.onerror = () => res(null);
+});
+
+async function getPin() { const p = await pinLoad('pin'); return p || localStorage.getItem('vp_pin') || '1234'; }
+async function savePin(pin) { await pinSave('pin', pin); try { localStorage.setItem('vp_pin', pin); } catch(e) {} }
+async function saveSQData(q, a) {
+  const d = JSON.stringify({ q, a: a.toLowerCase().trim() });
+  await pinSave('secret_q', d);
+  try { localStorage.setItem('vp_sq', d); } catch(e) {}
+}
+async function loadSQData() {
+  const raw = await pinLoad('secret_q') || localStorage.getItem('vp_sq');
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch(e) { return null; }
+}
+
+async function saveSQ() {
+  const q = document.getElementById('sq-select').value;
+  const a = document.getElementById('sq-answer').value.trim();
+  if (!q) { showToast('Sawaal chunein!', 'error'); return; }
+  if (!a || a.length < 2) { showToast('Jawab likhein!', 'error'); return; }
+  await saveSQData(q, a);
+  document.getElementById('sq-answer').value = '';
+  document.getElementById('sq-form').style.display = 'none';
+  showToast('Secret question save ho gaya! ✓', 'success');
+  updateSQStatus();
+}
+async function updateSQStatus() {
+  const d = await loadSQData();
+  const el = document.getElementById('sq-status-desc');
+  if (el) el.innerHTML = d ? '✅ Set: <b>' + d.q + '</b>' : '⚠️ Set nahi';
+}
+function toggleSQForm() {
+  const f = document.getElementById('sq-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+// ============================================================
+//  PIN LOGIC
+// ============================================================
+let pinBuf = '', pinMode = 'enter', newPinTmp = '';
+
+async function pinPress(k) {
+  if (k === 'C') pinBuf = '';
+  else if (k === 'DEL') pinBuf = pinBuf.slice(0, -1);
+  else if (pinBuf.length < 4) pinBuf += k;
+  updDots();
+  document.getElementById('pin-error').textContent = '';
+  if (pinBuf.length === 4) {
+    const cur = await getPin();
+    setTimeout(async () => {
+      if (pinMode === 'enter') {
+        if (pinBuf === cur) {
+          document.getElementById('lock-screen').classList.add('hidden');
+          await appStart();
+        } else {
+          document.getElementById('pin-error').textContent = '❌ Galat PIN!';
+          pinBuf = ''; updDots();
+        }
+      } else if (pinMode === 'set-new') {
+        newPinTmp = pinBuf; pinBuf = ''; pinMode = 'confirm-new';
+        document.getElementById('pin-mode-label').textContent = 'CONFIRM NEW PIN';
+        updDots();
+      } else if (pinMode === 'confirm-new') {
+        if (pinBuf === newPinTmp) {
+          await savePin(pinBuf);
+          const e = document.getElementById('pin-error');
+          e.style.color = '#C6F135'; e.textContent = '✅ PIN saved!';
+          setTimeout(() => {
+            pinMode = 'enter'; pinBuf = '';
+            document.getElementById('pin-mode-label').textContent = 'ENTER PIN';
+            e.style.color = '#C6F135'; e.textContent = ''; updDots();
+            document.getElementById('lock-screen').classList.add('hidden');
+          }, 1200);
+        } else {
+          document.getElementById('pin-error').textContent = '❌ PINs match nahi!';
+          pinMode = 'set-new'; pinBuf = '';
+          document.getElementById('pin-mode-label').textContent = 'SET NEW PIN';
+          updDots();
+        }
+      }
+    }, 150);
+  }
+}
+
+function updDots() {
+  for (let i = 0; i < 4; i++)
+    document.getElementById('dot' + i).classList.toggle('filled', i < pinBuf.length);
+}
+
+function startChangePin() {
+  pinMode = 'set-new'; pinBuf = ''; newPinTmp = '';
+  document.getElementById('pin-mode-label').textContent = 'SET NEW PIN';
+  document.getElementById('pin-error').textContent = ''; updDots();
+}
+
+function lockApp() {
+  pinMode = 'enter'; pinBuf = '';
+  document.getElementById('pin-mode-label').textContent = 'ENTER PIN';
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-error').style.color = '#C6F135';
+  updDots();
+  document.getElementById('lock-screen').classList.remove('hidden');
+  document.getElementById('forgot-pin-section').style.display = 'none';
+  document.getElementById('pin-entry-ui').style.display = 'flex';
+}
+
+// ============================================================
+//  FORGOT PIN
+// ============================================================
+async function showForgotPin() {
+  const d = await loadSQData();
+  if (!d) { showToast('Secret question set nahi — Settings mein set karein!', 'error'); return; }
+  document.getElementById('pin-entry-ui').style.display = 'none';
+  document.getElementById('forgot-pin-section').style.display = 'block';
+  document.getElementById('fp-question-display').textContent = '❓ ' + d.q;
+  document.getElementById('fp-answer').value = '';
+  document.getElementById('fp-error').textContent = '';
+}
+function hideForgotPin() {
+  document.getElementById('forgot-pin-section').style.display = 'none';
+  document.getElementById('pin-entry-ui').style.display = 'flex';
+}
+async function verifyForgotPin() {
+  const d = await loadSQData();
+  const ans = document.getElementById('fp-answer').value.trim().toLowerCase();
+  const errEl = document.getElementById('fp-error');
+  if (!ans) { errEl.textContent = '⚠️ Jawab likhein!'; return; }
+  if (!d) { errEl.textContent = '❌ Question nahi mila!'; return; }
+  if (ans === d.a || d.a.includes(ans) || ans.includes(d.a)) {
+    errEl.style.color = '#C6F135'; errEl.textContent = '✅ Sahi jawab!';
+    setTimeout(() => {
+      hideForgotPin();
+      setTimeout(() => {
+        document.getElementById('pin-mode-label').textContent = 'SET NEW PIN';
+        document.getElementById('pin-error').style.color = '#C6F135';
+        document.getElementById('pin-error').textContent = '🔓 Naya PIN set karein';
+        pinMode = 'set-new'; pinBuf = ''; newPinTmp = ''; updDots();
+      }, 200);
+    }, 600);
+  } else {
+    errEl.style.color = '#C6F135'; errEl.textContent = '❌ Jawab galat!';
+  }
+}
+
+// ============================================================
+//  FOLDER PICKER
+// ============================================================
+let _fpBlob = null, _fpFilename = null;
+
+function openFolderPicker(title, sub, blob, filename) {
+  _fpBlob = blob; _fpFilename = filename;
+  document.getElementById('fp-modal-title').textContent = title || '📁 Kahan Save Karein?';
+  document.getElementById('fp-modal-sub').textContent = sub || '';
+  document.getElementById('folder-picker-modal').classList.add('open');
+}
+function closeFolderPicker() {
+  document.getElementById('folder-picker-modal').classList.remove('open');
+  _fpBlob = null; _fpFilename = null;
+}
+function folderPickerAction(action) {
+  const blob = _fpBlob; const fname = _fpFilename;
+  closeFolderPicker();
+  if (!blob) { showToast('File nahi mili', 'error'); return; }
+  if (action === 'download') {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+    showToast('✅ Downloads mein save!', 'success');
+  } else if (action === 'share') {
+    const file = new File([blob], fname, { type: blob.type });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'VendorPro' }).catch(e => { if (e.name !== 'AbortError') showToast('Share error', 'error'); });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+    }
+  }
+}
+
+// ============================================================
+//  EXPORT / IMPORT ALL DATA
+// ============================================================
+async function exportAllData() {
+  const [bills, payments] = await Promise.all([dbGetAll(BILLS), dbGetAll(PAYMENTS)]);
+  const data = { version: 2, exported: new Date().toISOString(), bills, payments };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const fname = `VendorPro_Backup_${new Date().toISOString().split('T')[0]}.json`;
+  openFolderPicker('💾 Backup Kahan Save?', 'JSON backup file', blob, fname);
+}
+
+function importAllData(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.bills || !data.payments) throw new Error('Invalid file');
+      if (!confirm('Import will ADD to existing data. Continue?')) return;
+      for (const b of data.bills) {
+        const { id, ...rest } = b;
+        await dbAdd(BILLS, rest);
+      }
+      for (const p of data.payments) {
+        const { id, ...rest } = p;
+        await dbAdd(PAYMENTS, rest);
+      }
+      showToast('✅ Data imported!', 'success');
+      loadDashboard(); updateBadge();
+    } catch(err) { showToast('❌ Import failed: ' + err.message, 'error'); }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+//  OFFLINE BAR
+// ============================================================
+(function() {
+  const bar = document.getElementById('offline-bar');
+  function upd() { bar.style.display = navigator.onLine ? 'none' : 'block'; }
+  window.addEventListener('online', upd);
+  window.addEventListener('offline', upd);
+  upd();
+})();
+
+// ============================================================
+//  SERVICE WORKER
+// ============================================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
 /* VendorPro v3 — app.js */
 'use strict';
 
@@ -30,6 +294,13 @@ const dbDel=(s,id)=>new Promise((r,j)=>{const q=db.transaction(s,'readwrite').ob
 
 // ─── NAVIGATION ───────────────────────────────
 function navigate(pg){
+  if(pg==='settings'){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    const pel=document.getElementById('page-settings'); if(pel) pel.classList.add('active');
+    const nel=document.querySelector('[data-page="settings"]'); if(nel) nel.classList.add('active');
+    closeSidebar(); updateSQStatus(); return;
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pel=document.getElementById('page-'+pg); if(pel) pel.classList.add('active');
@@ -744,19 +1015,15 @@ function buildHTML(title,date,table){
 <div class="footer">© VendorPro Management Suite</div></body></html>`;
 }
 
-function triggerDL(html,filename){
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  if(window.showSaveFilePicker){
-    window.showSaveFilePicker({suggestedName:filename,types:[{description:'HTML',accept:{'text/html':['.html']}}]})
-      .then(async fh=>{const w=await fh.createWritable();await w.write(blob);await w.close();showToast('File saved!','success');})
-      .catch(()=>fallbackDL(blob,filename));
-  }else fallbackDL(blob,filename);
+function triggerDL(html, filename) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  openFolderPicker('📄 Report Save?', 'HTML report file', blob, filename);
 }
-function fallbackDL(blob,filename){
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=filename;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  URL.revokeObjectURL(url);showToast('Downloaded!','success');
+function fallbackDL(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ─── UTILS ────────────────────────────────────
@@ -768,8 +1035,37 @@ function showToast(msg,type=''){ const t=document.getElementById('toast'); t.tex
 async function updateBadge(){ const [b,p]=await Promise.all([dbGetAll(BILLS),dbGetAll(PAYMENTS)]); document.getElementById('mobileBadge').textContent=b.length+p.length; }
 
 // ─── INIT ─────────────────────────────────────
-initDB().then(()=>{
+async function appStart() {
+  await initDB();
   loadDashboard();
   updateBadge();
-  document.getElementById('dbStatus').textContent='Database Ready';
-}).catch(e=>{ console.error(e); document.getElementById('dbStatus').textContent='⚠ DB Error'; });
+  const dbEl = document.getElementById('dbStatus');
+  if (dbEl) dbEl.textContent = 'Database Ready';
+  updateSQStatus();
+}
+
+// Add settings nav
+const origNavigate = navigate;
+window._navigate = navigate;
+
+// Override saveKhataImage to use Folder Picker
+async function saveKhataImage(){
+  const el=document.getElementById('khataBlock');
+  if(!el){showToast('Ledger not loaded','error');return;}
+  showToast('Image bana raha hai...','info');
+  try{
+    const canvas=await html2canvas(el,{scale:2,backgroundColor:'#F2F3FA',useCORS:true,logging:false});
+    const vendor=document.getElementById('ledgerVendor').value||'Ledger';
+    const today=getTodayDDMMYY().replace(/\//g,'');
+    const fname=`Khata_${vendor.replace(/\s/g,'_')}_${today}.png`;
+    canvas.toBlob(blob=>{
+      openFolderPicker('📷 Khata Image Save?','Kahan save karein?',blob,fname);
+    },'image/png',1.0);
+  }catch(e){ console.error(e); showToast('Image save failed','error'); }
+}
+
+// Start app — open PIN IDB then show PIN screen
+openPinIDB().then(() => {
+  // PIN screen already visible — wait for user
+}).catch(e => console.log('PIN IDB error:', e));
+
